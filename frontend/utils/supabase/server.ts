@@ -4,9 +4,30 @@ import { cookies } from 'next/headers'
 export function createClient() {
   const cookieStore = cookies()
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    console.warn('Supabase URL or Key is missing. Using placeholders for build.')
+    return createServerClient(
+      'https://placeholder-project.supabase.co',
+      'placeholder-key',
+      {
+        cookies: {
+          getAll() {
+            return []
+          },
+          setAll() {
+            // No-op
+          },
+        },
+      }
+    )
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {
