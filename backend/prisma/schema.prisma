@@ -129,6 +129,7 @@ enum GamePlatform {
   STEAM
   ACTIVISION
   EPIC_GAMES
+  CHESS_COM
 }
 
 enum GameTitle {
@@ -137,6 +138,7 @@ enum GameTitle {
   COD_WARZONE
   DOTA_2
   FC_24
+  CHESS
 }
 
 enum WinCondition {
