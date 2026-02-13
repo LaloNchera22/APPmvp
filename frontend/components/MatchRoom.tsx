@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2, ExternalLink, Trophy, Swords } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface MatchRoomProps {
   gameLink: string
@@ -11,7 +10,6 @@ interface MatchRoomProps {
 }
 
 export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
-  const [matchResult, setMatchResult] = useState<any>(null)
   const [isValidating, setIsValidating] = useState(true)
   const supabase = createClient()
 
@@ -21,14 +19,13 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
     const checkResult = async () => {
       try {
         // Query match_results table for the given challenge_id (matchId)
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('match_results')
           .select('*')
           .eq('challenge_id', matchId)
           .single()
 
         if (data) {
-          setMatchResult(data)
           setIsValidating(false)
           if (interval) clearInterval(interval)
         }
