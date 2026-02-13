@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, UserX, Gamepad2 } from "lucide-react"
+import { Loader2, Swords, UserX, Gamepad2, Crown } from "lucide-react"
 import BetCard from "@/components/BetCard"
+import MatchStatus from "@/components/MatchStatus"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -15,6 +16,7 @@ const VALID_GAMES = [
   { id: "COD_WARZONE", name: "CoD: Warzone" },
   { id: "DOTA_2", name: "Dota 2" },
   { id: "FC_24", name: "EA FC 24" },
+  { id: "CHESS", name: "Chess.com" },
 ]
 
 interface Creator {
@@ -30,12 +32,21 @@ interface Proposal {
   creator?: Creator
 }
 
+interface Challenge {
+  id: string
+  game: string
+  status: string
+  creator_id: string
+  challenger_id: string
+}
+
 export default function MatchmakingPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [isInLobby, setIsInLobby] = useState(false)
+  const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
@@ -67,7 +78,7 @@ export default function MatchmakingPage() {
           }
 
           // Create active challenge (History/Game)
-          const { error: insertError } = await supabase.from("challenges").insert({
+          const { data: newChallenge, error: insertError } = await supabase.from("challenges").insert({
               game: proposal.game,
               metric: "MATCH_WINNER",
               bet_amount: proposal.bet_amount,
@@ -75,8 +86,14 @@ export default function MatchmakingPage() {
               creator_id: proposal.creator_id,
               challenger_id: user.id
           })
+          .select()
+          .single()
 
           if (insertError) throw insertError
+
+          if (newChallenge) {
+             setActiveChallenge(newChallenge)
+          }
 
           // Delete the accepted proposal
           const { error: deleteError } = await supabase
@@ -98,6 +115,49 @@ export default function MatchmakingPage() {
           setError("Error al aceptar el reto. Intenta de nuevo.")
       }
   }
+
+  // Effect to check for active challenges and listen for new ones (as creator)
+  useEffect(() => {
+      const checkActiveChallenge = async () => {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) return
+
+          // Check if user is in an active challenge
+          const { data: challenge } = await supabase
+              .from("challenges")
+              .select("*")
+              .eq("status", "ACCEPTED")
+              .or(`creator_id.eq.${user.id},challenger_id.eq.${user.id}`)
+              .maybeSingle()
+
+          if (challenge) {
+              setActiveChallenge(challenge)
+          }
+
+          // Listen for challenges created where I am the creator (someone accepted my proposal)
+          const channel = supabase
+              .channel("my_challenges")
+              .on(
+                  "postgres_changes",
+                  {
+                      event: "INSERT",
+                      schema: "public",
+                      table: "challenges",
+                      filter: `creator_id=eq.${user.id}`,
+                  },
+                  (payload) => {
+                      setActiveChallenge(payload.new as Challenge)
+                  }
+              )
+              .subscribe()
+
+          return () => {
+              supabase.removeChannel(channel)
+          }
+      }
+
+      checkActiveChallenge()
+  }, [supabase])
 
   useEffect(() => {
     if (!selectedGame) return
@@ -228,6 +288,18 @@ export default function MatchmakingPage() {
       }
     }
   }, [selectedGame, router, supabase])
+
+  if (activeChallenge) {
+    return (
+       <div className="space-y-6">
+           <h1 className="text-3xl font-bold text-white flex items-center gap-2 mb-6">
+               <Crown className="text-yellow-400 w-8 h-8" />
+               Partida en Curso
+           </h1>
+           <MatchStatus challengeId={activeChallenge.id} />
+       </div>
+    )
+  }
 
   // If no game selected, show selection screen
   if (!selectedGame) {
