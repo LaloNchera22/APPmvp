@@ -37,7 +37,7 @@ export default function Navbar() {
         const { data: wallet } = await supabase
           .from("wallets")
           .select("balance")
-          .eq("user_id", currentUser.id)
+          .eq("userId", currentUser.id)
           .single()
         if (wallet) setBalance(Number(wallet.balance).toFixed(2))
       } else {
