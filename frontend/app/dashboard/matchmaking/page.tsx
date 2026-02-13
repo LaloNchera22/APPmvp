@@ -25,8 +25,9 @@ interface Challenge {
   id: string
   game: string
   metric: string
-  betAmount: number
+  bet_amount: number
   status: string
+  created_at?: string
   creator?: Creator
 }
 
@@ -50,8 +51,8 @@ export default function MatchmakingPage() {
   useEffect(() => {
     if (!selectedGame) return
 
-    let intervalId: NodeJS.Timeout
     let mounted = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
     const initMatchmaking = async () => {
       try {
@@ -70,9 +71,9 @@ export default function MatchmakingPage() {
           .insert({
             game: selectedGame,
             metric: "MATCH_WINNER",
-            betAmount: 0,
+            bet_amount: 0,
             status: "OPEN",
-            creatorId: user.id,
+            creator_id: user.id,
           })
           .select()
           .single()
@@ -91,8 +92,36 @@ export default function MatchmakingPage() {
         // Initial fetch
         fetchChallenges()
 
-        // Polling
-        intervalId = setInterval(fetchChallenges, 5000)
+        if (!mounted) return
+
+        // Realtime subscription
+        channel = supabase
+          .channel("matchmaking_lobby")
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "challenges",
+              filter: `game=eq.${selectedGame}`,
+            },
+            () => {
+              // Re-fetch to get creator profile
+              fetchChallenges()
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "DELETE",
+              schema: "public",
+              table: "challenges",
+            },
+            (payload) => {
+              setChallenges((prev) => prev.filter((c) => c.id !== payload.old.id))
+            }
+          )
+          .subscribe()
 
       } catch (e) {
         console.error("Unexpected error:", e)
@@ -112,7 +141,7 @@ export default function MatchmakingPage() {
         .eq("status", "OPEN")
         .eq("game", selectedGame)
         .neq("id", myChallengeIdRef.current || "00000000-0000-0000-0000-000000000000") // Exclude self
-        .order("createdAt", { ascending: false })
+          .order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error fetching lobby:", error)
@@ -128,7 +157,7 @@ export default function MatchmakingPage() {
 
     return () => {
       mounted = false
-      if (intervalId) clearInterval(intervalId)
+      if (channel) supabase.removeChannel(channel)
       // Cleanup
       const idToDelete = myChallengeIdRef.current
       if (idToDelete) {
