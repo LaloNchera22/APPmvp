@@ -1,0 +1,20 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 1831ms
+ ○ Compiling /dashboard-test ...
+ ✓ Compiled /dashboard-test in 11.8s (1688 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /dashboard-test 200 in 13376ms
+ ✓ Compiled in 1920ms (840 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 816ms (1678 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+ GET / 200 in 1091ms
+ ✓ Compiled in 436ms (1692 modules)
+ ✓ Compiled in 783ms (1660 modules)
