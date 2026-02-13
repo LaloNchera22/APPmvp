@@ -5,9 +5,10 @@ interface BetCardProps {
   gameTitle: string
   winCondition: string
   betAmount: number
+  onAccept?: () => void
 }
 
-export default function BetCard({ gameTitle, winCondition, betAmount }: BetCardProps) {
+export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }: BetCardProps) {
   // Helper to format enums (e.g. LEAGUE_OF_LEGENDS -> League Of Legends)
   const formatText = (text: string) => {
     return text
@@ -56,6 +57,7 @@ export default function BetCard({ gameTitle, winCondition, betAmount }: BetCardP
         </div>
 
         <button
+          onClick={onAccept}
           className="w-full py-2.5 px-4 bg-white/10 hover:bg-neon-magenta/20 text-white text-sm font-medium rounded-lg border border-white/10 hover:border-neon-magenta/50 transition-all duration-300 flex items-center justify-center gap-2 group-hover:shadow-[0_0_15px_rgba(217,70,239,0.2)]"
         >
           <span>Aceptar Reto</span>

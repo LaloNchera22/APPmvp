@@ -21,24 +21,24 @@ interface Creator {
     username: string
 }
 
-interface Challenge {
+interface Proposal {
   id: string
   game: string
-  metric: string
   bet_amount: number
-  status: string
+  creator_id: string
   created_at?: string
   creator?: Creator
 }
 
 export default function MatchmakingPage() {
-  const [challenges, setChallenges] = useState<Challenge[]>([])
+  const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
+  const [isInLobby, setIsInLobby] = useState(false)
 
-  // Ref to track the created challenge ID for cleanup
-  const myChallengeIdRef = useRef<string | null>(null)
+  // Ref to track the created proposal ID for cleanup
+  const myProposalIdRef = useRef<string | null>(null)
 
   const supabase = createClient()
   const router = useRouter()
@@ -46,6 +46,46 @@ export default function MatchmakingPage() {
   const handleGameSelect = (gameId: string) => {
     setSelectedGame(gameId)
     setLoading(true)
+  }
+
+  // Handle accepting a proposal
+  const handleAcceptProposal = async (proposal: Proposal) => {
+      try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) return
+
+          // Create active challenge (History/Game)
+          const { error: insertError } = await supabase.from("challenges").insert({
+              game: proposal.game,
+              metric: "MATCH_WINNER",
+              bet_amount: proposal.bet_amount,
+              status: "ACCEPTED",
+              creator_id: proposal.creator_id,
+              // Note: opponent_id is omitted as schema is unverified,
+              // assuming creator_id and status are sufficient to start.
+          })
+
+          if (insertError) throw insertError
+
+          // Delete the accepted proposal
+          const { error: deleteError } = await supabase
+              .from("active_proposals")
+              .delete()
+              .eq("id", proposal.id)
+
+          if (deleteError) throw deleteError
+
+          // Cleanup my own proposal if exists
+          if (myProposalIdRef.current) {
+              await supabase.from("active_proposals").delete().eq("id", myProposalIdRef.current)
+          }
+
+          alert("¡Reto aceptado! La partida ha comenzado.")
+
+      } catch (e) {
+          console.error("Error accepting proposal:", e)
+          setError("Error al aceptar el reto. Intenta de nuevo.")
+      }
   }
 
   useEffect(() => {
@@ -62,35 +102,43 @@ export default function MatchmakingPage() {
           return
         }
 
-        // Insert challenge with valid Enum values
-        // game: selectedGame (e.g. LEAGUE_OF_LEGENDS)
-        // metric: MATCH_WINNER (valid WinCondition)
-        // status: OPEN (valid ChallengeStatus)
-        const { data: newChallenge, error: insertError } = await supabase
-          .from("challenges")
-          .insert({
-            game: selectedGame,
-            metric: "MATCH_WINNER",
-            bet_amount: 0,
-            status: "OPEN",
-            creator_id: user.id,
-          })
-          .select()
-          .single()
+        // Check if user already has a proposal
+        const { data: existingProposal, error: fetchError } = await supabase
+            .from("active_proposals")
+            .select("id")
+            .eq("creator_id", user.id)
+            .maybeSingle() // Use maybeSingle to avoid error if not found
 
-        if (insertError) {
-             console.error("Error creating matchmaking entry:", insertError)
-             setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
-             setLoading(false)
-             return
+        if (existingProposal) {
+            myProposalIdRef.current = existingProposal.id
+            setIsInLobby(true)
+        } else {
+             // Create new proposal
+            const { data: newProposal, error: insertError } = await supabase
+            .from("active_proposals")
+            .insert({
+                game: selectedGame,
+                bet_amount: 0,
+                creator_id: user.id,
+            })
+            .select()
+            .single()
+
+            if (insertError) {
+                console.error("Error creating matchmaking entry:", insertError)
+                setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
+                setLoading(false)
+                return
+            }
+
+            if (newProposal) {
+                myProposalIdRef.current = newProposal.id
+                setIsInLobby(true)
+            }
         }
 
-        if (newChallenge) {
-            myChallengeIdRef.current = newChallenge.id
-        }
-
-        // Initial fetch
-        fetchChallenges()
+        // Initial fetch of opponents
+        fetchProposals()
 
         if (!mounted) return
 
@@ -102,12 +150,11 @@ export default function MatchmakingPage() {
             {
               event: "INSERT",
               schema: "public",
-              table: "challenges",
+              table: "active_proposals",
               filter: `game=eq.${selectedGame}`,
             },
             () => {
-              // Re-fetch to get creator profile
-              fetchChallenges()
+              fetchProposals()
             }
           )
           .on(
@@ -115,10 +162,10 @@ export default function MatchmakingPage() {
             {
               event: "DELETE",
               schema: "public",
-              table: "challenges",
+              table: "active_proposals",
             },
             (payload) => {
-              setChallenges((prev) => prev.filter((c) => c.id !== payload.old.id))
+              setProposals((prev) => prev.filter((p) => p.id !== payload.old.id))
             }
           )
           .subscribe()
@@ -130,24 +177,26 @@ export default function MatchmakingPage() {
       }
     }
 
-    const fetchChallenges = async () => {
+    const fetchProposals = async () => {
       if (!mounted) return
 
-      // Fetch OPEN challenges for the selected game
-      // Include creator profile to show username
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Fetch active proposals for the selected game, excluding self
       const { data, error } = await supabase
-        .from("challenges")
+        .from("active_proposals")
         .select("*, creator:profiles(username)")
-        .eq("status", "OPEN")
         .eq("game", selectedGame)
-        .neq("id", myChallengeIdRef.current || "00000000-0000-0000-0000-000000000000") // Exclude self
-          .order("created_at", { ascending: false })
+        .neq("creator_id", user.id)
+        .order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error fetching lobby:", error)
+        setError("Error al cargar oponentes.")
       } else {
         if (mounted) {
-            setChallenges((data as unknown as Challenge[]) || [])
+            setProposals((data as unknown as Proposal[]) || [])
             setLoading(false)
         }
       }
@@ -158,10 +207,11 @@ export default function MatchmakingPage() {
     return () => {
       mounted = false
       if (channel) supabase.removeChannel(channel)
-      // Cleanup
-      const idToDelete = myChallengeIdRef.current
+
+      // Cleanup on unmount
+      const idToDelete = myProposalIdRef.current
       if (idToDelete) {
-        supabase.from("challenges").delete().eq("id", idToDelete).then(({ error }) => {
+        supabase.from("active_proposals").delete().eq("id", idToDelete).then(({ error }) => {
             if (error) console.error("Error cleaning up matchmaking entry:", error)
         })
       }
@@ -206,7 +256,7 @@ export default function MatchmakingPage() {
             Sala de Emparejamiento: {VALID_GAMES.find(g => g.id === selectedGame)?.name}
             </h1>
             <p className="text-gray-400 mt-2">
-                Estás visible para otros jugadores. Esperando oponentes...
+                {isInLobby ? "Estás en la sala. Esperando oponentes..." : "Conectando..."}
             </p>
         </div>
         <div className="flex gap-2">
@@ -239,20 +289,21 @@ export default function MatchmakingPage() {
             <Loader2 className="w-10 h-10 text-neon-cyan animate-spin" />
             <p className="text-gray-400">Conectando a la sala...</p>
         </div>
-      ) : challenges.length === 0 ? (
+      ) : proposals.length === 0 ? (
         <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
             <Loader2 className="w-8 h-8 text-neon-magenta animate-spin mx-auto mb-4" />
             <p className="text-gray-400 text-lg">Buscando oponentes...</p>
-            <p className="text-gray-500 text-sm mt-2">No hay otros jugadores buscando en este momento.</p>
+            <p className="text-gray-500 text-sm mt-2">No hay oponentes disponibles en este momento.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {challenges.map((challenge) => (
+            {proposals.map((proposal) => (
             <BetCard
-                key={challenge.id}
-                gameTitle="Jugador Disponible" // Or maybe "Retador"
-                winCondition={challenge.creator?.username ? `Usuario: ${challenge.creator.username}` : "Usuario Anónimo"}
-                betAmount={0}
+                key={proposal.id}
+                gameTitle="Retador Disponible"
+                winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
+                betAmount={proposal.bet_amount}
+                onAccept={() => handleAcceptProposal(proposal)}
             />
             ))}
         </div>
