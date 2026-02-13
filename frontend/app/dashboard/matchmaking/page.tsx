@@ -103,7 +103,7 @@ export default function MatchmakingPage() {
         }
 
         // Check if user already has a proposal
-        const { data: existingProposal, error: fetchError } = await supabase
+        const { data: existingProposal } = await supabase
             .from("active_proposals")
             .select("id")
             .eq("creator_id", user.id)
