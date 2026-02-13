@@ -2,7 +2,7 @@ import { AuthForm } from "@/components/auth/AuthForm"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Registro - SkillWager",
+  title: "Registro",
   description: "Crea tu cuenta",
 }
 

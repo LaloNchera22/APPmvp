@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy } from "lucide-react"
+import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy, Home } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { User } from "@supabase/supabase-js"
 
@@ -48,12 +48,7 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-neon-cyan to-neon-magenta group-hover:scale-105 transition-transform">
-              <Trophy className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">
-              Skill<span className="text-neon-cyan">Wager</span>
-            </span>
+            <Home className="h-6 w-6 text-white hover:text-neon-cyan transition-colors" />
           </Link>
 
           {/* Desktop Navigation */}
