@@ -72,9 +72,7 @@ export default function MatchmakingPage() {
             metric: "MATCH_WINNER",
             betAmount: 0,
             status: "OPEN",
-            // creatorId is handled by RLS/Supabase usually, but if needed we might need to pass it?
-            // Usually auth.uid() is sufficient if RLS policies are set up correctly.
-            // If the previous code didn't pass creatorId, it relies on default/trigger.
+            creatorId: user.id,
           })
           .select()
           .single()
