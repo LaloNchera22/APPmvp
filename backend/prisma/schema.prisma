@@ -1,72 +1,164 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id              String   @id @default(uuid())
-  username        String   @unique
-  email           String   @unique
-  password        String
-  twoFactorSecret String?
-  isTwoFactorEnabled Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  wallet          Wallet?
-  bets            Bet[]
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Necesario para Supabase en serverless
 }
 
+// --------------------------------------
+// 👤 PERFIL PÚBLICO (Sincronizado con Auth)
+// --------------------------------------
+
+// En Supabase, el usuario real vive en "auth.users".
+// Esta tabla es solo para datos públicos (Avatar, Nivel, etc).
+model UserProfile {
+  id         String   @id @db.Uuid // Coincide con auth.uid() de Supabase
+  username   String   @unique
+  email      String   @unique
+  avatarUrl  String?
+  reputation Int      @default(100) // Sistema de karma
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relaciones
+  wallet       Wallet?
+  gameAccounts GameAccount[]
+
+  // Historial
+  challengesCreated  Challenge[] @relation("Creator")
+  challengesAccepted Challenge[] @relation("Challenger")
+
+  @@map("profiles") // En Supabase se suele llamar 'profiles'
+}
+
+// Tus conexiones a juegos (Ej. Tu cuenta de Riot vinculada)
+model GameAccount {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String       @db.Uuid
+  platform   GamePlatform
+  platformId String // ID externo (PUUID, SteamID)
+  gamerTag   String
+  isVerified Boolean      @default(false)
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, platformId])
+  @@map("game_accounts")
+}
+
+// --------------------------------------
+// 💰 BÓVEDA FINANCIERA (ACCESO RESTRINGIDO)
+// --------------------------------------
+
+// IMPORTANTE: Habilita RLS (Row Level Security) en Supabase para esta tabla.
+// Nadie debe poder escribir aquí desde el cliente. Solo el "Service Role" (NestJS).
 model Wallet {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  balance   Decimal  @default(0.00) @db.Decimal(10, 2)
-  currency  String   @default("USD")
-  version   Int      @default(0) // For Optimistic Concurrency Control
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @unique @db.Uuid
+
+  // DECIMAL es obligatorio para dinero
+  balance  Decimal @default(0.00) @db.Decimal(10, 2) // Dinero libre
+  escrow   Decimal @default(0.00) @db.Decimal(10, 2) // Dinero en juego
+  currency String  @default("USD")
+
+  user         UserProfile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  walletId    String          @db.Uuid
+  amount      Decimal         @db.Decimal(10, 2)
+  type        TransactionType
+  referenceId String? // ID del Challenge
+  createdAt   DateTime        @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@map("transactions")
+}
+
+// --------------------------------------
+// 🎮 CORE DE APUESTAS
+// --------------------------------------
+
+model Challenge {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  game      GameTitle
+  metric    WinCondition
+  betAmount Decimal         @db.Decimal(10, 2)
+  status    ChallengeStatus @default(OPEN)
+
+  // Jugadores
+  creatorId String      @db.Uuid
+  creator   UserProfile @relation("Creator", fields: [creatorId], references: [id])
+
+  challengerId String?      @db.Uuid
+  challenger   UserProfile? @relation("Challenger", fields: [challengerId], references: [id])
+
+  result MatchResult?
+
+  @@map("challenges")
 }
 
-enum BetStatus {
-  PENDING
-  ACCEPTED
-  LIVE
-  WON
-  LOST
+model MatchResult {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  challengeId String    @unique @db.Uuid
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+
+  winnerId   String?  @db.Uuid
+  apiRawData Json // Guardamos la respuesta exacta de Riot/Steam
+  verifiedAt DateTime @default(now())
+
+  @@map("match_results")
+}
+
+// --------------------------------------
+// 📋 ENUMS
+// --------------------------------------
+
+enum GamePlatform {
+  RIOT_GAMES
+  STEAM
+  ACTIVISION
+  EPIC_GAMES
+}
+
+enum GameTitle {
+  LEAGUE_OF_LEGENDS
+  VALORANT
+  COD_WARZONE
+  DOTA_2
+  FC_24
+}
+
+enum WinCondition {
+  MOST_KILLS
+  MATCH_WINNER
+  HIGHEST_SCORE
+}
+
+enum ChallengeStatus {
+  OPEN
+  ACTIVE
+  VALIDATING
+  COMPLETED
   CANCELLED
+  DISPUTED
 }
 
-model Bet {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  matchId   String
-  match     GameMatch @relation(fields: [matchId], references: [id])
-  amount    Decimal   @db.Decimal(10, 2)
-  status    BetStatus @default(PENDING)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-enum MatchStatus {
-  PENDING
-  IN_PROGRESS
-  FINISHED
-  CANCELLED
-}
-
-model GameMatch {
-  id              String      @id @default(uuid())
-  externalMatchId String?     @unique // ID from Riot/Steam
-  gameType        String      // LoL, FIFA, Warzone
-  status          MatchStatus @default(PENDING)
-  result          Json?       // Store detailed result from API
-  bets            Bet[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_LOCK
+  BET_WIN
+  BET_REFUND
+  FEE
 }
