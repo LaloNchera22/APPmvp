@@ -1,6 +1,15 @@
-import { Swords, Gamepad2, Trophy } from "lucide-react"
+import { Swords, Gamepad2, Trophy, Crown } from "lucide-react"
 
 const games = [
+  {
+    id: "chess",
+    title: "Chess.com",
+    description: "Demuestra tu estrategia en el tablero de 64 casillas.",
+    icon: Crown,
+    color: "text-yellow-400",
+    bg: "bg-yellow-400/10",
+    border: "border-yellow-400/20",
+  },
   {
     id: "lol",
     title: "League of Legends",
