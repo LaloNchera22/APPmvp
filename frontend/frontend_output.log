@@ -11,10 +11,30 @@ This information is used to shape Next.js' roadmap and prioritize features.
 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
 https://nextjs.org/telemetry
 
- ✓ Ready in 1866ms
- ○ Compiling / ...
- ✓ Compiled / in 13.2s (1692 modules)
+ ✓ Ready in 2.2s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1099ms (123 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+Supabase URL or Key is missing in middleware. Using placeholders.
+ ○ Compiling /login ...
+ ✓ Compiled /login in 12.6s (1847 modules)
 Supabase URL or Key is missing. Using placeholders for build.
- GET / 200 in 14341ms
- ✓ Compiled in 1573ms (849 modules)
-[?25h
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /login 200 in 13467ms
+ ✓ Compiled in 1199ms (926 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled in 178ms (123 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+ ○ Compiling /dashboard/games ...
+ ✓ Compiled /dashboard/games in 1062ms (1843 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /dashboard/games 200 in 1418ms
+ ✓ Compiled in 66ms (123 modules)
+ ✓ Compiled in 90ms (123 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /dashboard/games 200 in 76ms
+ ✓ Compiled in 152ms (123 modules)

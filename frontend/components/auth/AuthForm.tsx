@@ -48,7 +48,7 @@ export function AuthForm({ type }: AuthFormProps) {
           password: data.password,
         })
         if (error) throw error
-        router.push("/")
+        router.push("/dashboard")
         router.refresh()
       } else {
         const { error } = await supabase.auth.signUp({
