@@ -54,6 +54,18 @@ export default function MatchmakingPage() {
           const { data: { user } } = await supabase.auth.getUser()
           if (!user) return
 
+          // Lock Bet
+          const { error: lockError } = await supabase.rpc("lock_bet", {
+              p_user_id: user.id,
+              p_amount: proposal.bet_amount
+          })
+
+          if (lockError) {
+              console.error("Lock bet error:", lockError)
+              setError("Error al bloquear saldo: " + lockError.message)
+              return
+          }
+
           // Create active challenge (History/Game)
           const { error: insertError } = await supabase.from("challenges").insert({
               game: proposal.game,
@@ -61,8 +73,7 @@ export default function MatchmakingPage() {
               bet_amount: proposal.bet_amount,
               status: "ACCEPTED",
               creator_id: proposal.creator_id,
-              // Note: opponent_id is omitted as schema is unverified,
-              // assuming creator_id and status are sufficient to start.
+              challenger_id: user.id
           })
 
           if (insertError) throw insertError

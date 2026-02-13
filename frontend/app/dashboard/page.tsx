@@ -1,11 +1,22 @@
 "use client"
 
 import { useState } from "react"
+import { createClient } from "@/utils/supabase/client"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Swords, Send, Users } from "lucide-react"
+import { Swords, Send, Users, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+// Define valid games based on Schema Enum GameTitle
+const VALID_GAMES = [
+  { id: "LEAGUE_OF_LEGENDS", name: "League of Legends" },
+  { id: "VALORANT", name: "Valorant" },
+  { id: "COD_WARZONE", name: "CoD: Warzone" },
+  { id: "DOTA_2", name: "Dota 2" },
+  { id: "FC_24", name: "EA FC 24" },
+]
 
 export default function DashboardPage() {
   const [inviteData, setInviteData] = useState({
@@ -13,13 +24,100 @@ export default function DashboardPage() {
     amount: "",
     challenge: ""
   })
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock invitation logic
-    console.log("Sending invitation:", inviteData)
-    alert(`Invitación enviada a ${inviteData.username} para ${inviteData.challenge} por $${inviteData.amount}`)
-    setInviteData({ username: "", amount: "", challenge: "" })
+    setLoading(true)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/login")
+        return
+      }
+
+      // Validate Amount
+      const amount = parseFloat(inviteData.amount)
+      if (isNaN(amount) || amount <= 0) {
+        alert("Por favor ingresa un monto válido mayor a 0.")
+        setLoading(false)
+        return
+      }
+
+      // Validate Game
+      const gameInput = inviteData.challenge.trim()
+      const validGame = VALID_GAMES.find(
+        (g) => g.id === gameInput || g.name.toLowerCase() === gameInput.toLowerCase()
+      )
+
+      if (!validGame) {
+        alert(`Juego no válido. Juegos soportados: ${VALID_GAMES.map(g => g.name).join(", ")}`)
+        setLoading(false)
+        return
+      }
+
+      // Lookup Opponent
+      const { data: opponentData, error: opponentError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", inviteData.username.trim())
+        .maybeSingle()
+
+      if (opponentError || !opponentData) {
+        console.error("Opponent lookup error:", opponentError)
+        alert("Usuario no encontrado. Verifica el nombre de usuario.")
+        setLoading(false)
+        return
+      }
+
+      if (opponentData.id === user.id) {
+        alert("No puedes retarte a ti mismo.")
+        setLoading(false)
+        return
+      }
+
+      // Lock Bet
+      const { error: lockError } = await supabase.rpc("lock_bet", {
+        p_user_id: user.id,
+        p_amount: amount
+      })
+
+      if (lockError) {
+        console.error("Lock bet error:", lockError)
+        alert("Error al bloquear saldo: " + lockError.message)
+        setLoading(false)
+        return
+      }
+
+      // Create Challenge
+      const { error: insertError } = await supabase.from("challenges").insert({
+        game: validGame.id,
+        metric: "MATCH_WINNER",
+        bet_amount: amount,
+        status: "OPEN",
+        creator_id: user.id,
+        challenger_id: opponentData.id
+      })
+
+      if (insertError) {
+        console.error("Challenge insert error:", insertError)
+        alert("Error al crear el reto: " + insertError.message)
+        // Ideally we should rollback lock_bet here, but we can't easily.
+        // Alert user to contact support if money was deducted.
+      } else {
+        alert(`Invitación enviada a ${inviteData.username} para ${validGame.name} por $${amount}`)
+        setInviteData({ username: "", amount: "", challenge: "" })
+      }
+
+    } catch (err) {
+      console.error("Unexpected error:", err)
+      alert("Ocurrió un error inesperado.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -51,6 +149,7 @@ export default function DashboardPage() {
                   onChange={(e) => setInviteData({...inviteData, username: e.target.value})}
                   className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -64,22 +163,38 @@ export default function DashboardPage() {
                   className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                   required
                   min="0"
+                  disabled={loading}
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-300">Reto / Juego</label>
                 <Input
-                  placeholder="Ej. 1v1 Mid Lane"
+                  placeholder="Ej. League of Legends"
                   value={inviteData.challenge}
                   onChange={(e) => setInviteData({...inviteData, challenge: e.target.value})}
                   className="bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                   required
+                  disabled={loading}
                 />
+                <p className="text-xs text-gray-500">
+                  Juegos válidos: {VALID_GAMES.map(g => g.name).join(", ")}
+                </p>
               </div>
 
-              <Button type="submit" className="w-full bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 hover:bg-neon-cyan/20">
-                Enviar Reto
+              <Button
+                type="submit"
+                className="w-full bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 hover:bg-neon-cyan/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  "Enviar Reto"
+                )}
               </Button>
             </form>
           </CardContent>
