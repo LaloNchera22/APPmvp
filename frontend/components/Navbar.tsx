@@ -65,6 +65,21 @@ export default function Navbar() {
     return () => subscription.unsubscribe()
   }, [supabase])
 
+  useEffect(() => {
+    const handleBalanceUpdate = async () => {
+      if (!user) return
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("userId", user.id)
+        .single()
+      if (wallet) setBalance(Number(wallet.balance).toFixed(2))
+    }
+
+    window.addEventListener('balanceUpdated', handleBalanceUpdate)
+    return () => window.removeEventListener('balanceUpdated', handleBalanceUpdate)
+  }, [user, supabase])
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
