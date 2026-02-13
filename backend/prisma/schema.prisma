@@ -1,0 +1,72 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String   @id @default(uuid())
+  username        String   @unique
+  email           String   @unique
+  password        String
+  twoFactorSecret String?
+  isTwoFactorEnabled Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  wallet          Wallet?
+  bets            Bet[]
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  balance   Decimal  @default(0.00) @db.Decimal(10, 2)
+  currency  String   @default("USD")
+  version   Int      @default(0) // For Optimistic Concurrency Control
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum BetStatus {
+  PENDING
+  ACCEPTED
+  LIVE
+  WON
+  LOST
+  CANCELLED
+}
+
+model Bet {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  matchId   String
+  match     GameMatch @relation(fields: [matchId], references: [id])
+  amount    Decimal   @db.Decimal(10, 2)
+  status    BetStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+enum MatchStatus {
+  PENDING
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+model GameMatch {
+  id              String      @id @default(uuid())
+  externalMatchId String?     @unique // ID from Riot/Steam
+  gameType        String      // LoL, FIFA, Warzone
+  status          MatchStatus @default(PENDING)
+  result          Json?       // Store detailed result from API
+  bets            Bet[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
