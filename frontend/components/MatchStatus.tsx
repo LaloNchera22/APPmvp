@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/utils/supabase/client'
-import { Loader2, CheckCircle, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface MatchStatusProps {
   challengeId: string
@@ -16,7 +16,6 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
   const [status, setStatus] = useState<'IDLE' | 'COMPLETED' | 'PENDING' | 'ERROR'>('IDLE')
   const [message, setMessage] = useState('')
   const [newBalance, setNewBalance] = useState<string | null>(null)
-  const [winnerId, setWinnerId] = useState<string | null>(null)
   const supabase = createClient()
 
   const handleVerify = async () => {
@@ -39,7 +38,6 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
 
       if (data.status === 'COMPLETED') {
         setStatus('COMPLETED')
-        setWinnerId(data.winner)
 
         // Fetch new balance
         const { data: { user } } = await supabase.auth.getUser()
@@ -61,10 +59,11 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
         setMessage(data.message || 'La partida no ha terminado o no se encontró.')
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error)
       setStatus('ERROR')
-      setMessage(error.message || 'Ocurrió un error inesperado.')
+      const err = error as Error
+      setMessage(err.message || 'Ocurrió un error inesperado.')
     } finally {
       setLoading(false)
     }
