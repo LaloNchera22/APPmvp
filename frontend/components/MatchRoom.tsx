@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Loader2, ExternalLink, Trophy, Swords } from 'lucide-react'
 
@@ -12,13 +12,11 @@ interface MatchRoomProps {
 export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
   const [isValidating, setIsValidating] = useState(true)
   const supabase = createClient()
+  const intervalRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    let interval: NodeJS.Timeout
-
     const checkResult = async () => {
       try {
-        // Query match_results table for the given challenge_id (matchId)
         const { data } = await supabase
           .from('match_results')
           .select('*')
@@ -27,21 +25,18 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
 
         if (data) {
           setIsValidating(false)
-          if (interval) clearInterval(interval)
+          if (intervalRef.current) clearInterval(intervalRef.current)
         }
       } catch (error) {
         console.error('Error checking match result:', error)
       }
     }
 
-    // Initial check
     checkResult()
-
-    // Poll every 10 seconds
-    interval = setInterval(checkResult, 10000)
+    intervalRef.current = setInterval(checkResult, 10000)
 
     return () => {
-      if (interval) clearInterval(interval)
+      if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [matchId, supabase])
 
