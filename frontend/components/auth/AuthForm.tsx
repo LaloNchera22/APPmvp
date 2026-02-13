@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import GoogleButton from "@/components/auth/GoogleButton"
 
 // Validation Schema
 const authSchema = z.object({
@@ -136,12 +137,10 @@ export function AuthForm({ type }: AuthFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-           <Button variant="outline" onClick={() => handleSocialLogin('discord')} className="text-white hover:bg-white/10 border-white/10">
-              <span className="font-bold text-[#5865F2]">Discord</span>
-           </Button>
-           <Button variant="outline" onClick={() => handleSocialLogin('google')} className="text-white hover:bg-white/10 border-white/10">
-              <span className="font-bold text-red-500">Google</span>
+        <div className="flex flex-col gap-2">
+           <GoogleButton />
+           <Button variant="outline" onClick={() => handleSocialLogin('discord')} className="w-full text-white hover:bg-white/10 border-white/10">
+              <span className="font-bold text-[#5865F2]">Continuar con Discord</span>
            </Button>
         </div>
       </CardContent>

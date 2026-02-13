@@ -20,22 +20,50 @@ import { User } from "@supabase/supabase-js"
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
-  const [balance] = useState("0.00") // Mock balance
+  const [balance, setBalance] = useState("0.00")
+  const [username, setUsername] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
-    const getUser = async () => {
+    const fetchUserData = async (currentUser: User | null) => {
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", currentUser.id)
+          .single()
+        if (profile) setUsername(profile.username)
+
+        const { data: wallet } = await supabase
+          .from("wallets")
+          .select("balance")
+          .eq("user_id", currentUser.id)
+          .single()
+        if (wallet) setBalance(Number(wallet.balance).toFixed(2))
+      } else {
+        setBalance("0.00")
+        setUsername(null)
+      }
+    }
+
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      if (user) await fetchUserData(user)
     }
-    getUser()
+    init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) fetchUserData(session.user)
+      else {
+        setBalance("0.00")
+        setUsername(null)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -75,7 +103,7 @@ export default function Navbar() {
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none text-white">
-                          {user.user_metadata?.full_name || "Usuario"}
+                          {username || user.user_metadata?.full_name || "Usuario"}
                         </p>
                         <p className="text-xs leading-none text-muted-foreground text-gray-400">
                           {user.email}
@@ -151,7 +179,7 @@ export default function Navbar() {
                     </Avatar>
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-white">
-                        {user.user_metadata?.full_name || user.email}
+                        {username || user.user_metadata?.full_name || user.email}
                       </span>
                       <span className="text-xs text-gray-400 font-mono">
                          Saldo: ${balance}
