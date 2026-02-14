@@ -78,8 +78,8 @@ export default function MatchmakingPage() {
         }
 
         const amount = parseFloat(betAmount)
-        if (isNaN(amount) || amount < 0) {
-            setError("Monto de apuesta inválido")
+        if (isNaN(amount) || amount <= 0) {
+            setError("Monto de apuesta inválido. Debe ser mayor a 0.")
             setCreatingProposal(false)
             return
         }
@@ -96,7 +96,7 @@ export default function MatchmakingPage() {
             .single()
 
         if (insertError) {
-            console.error("Error creating matchmaking entry:", insertError)
+            console.error("Error creating matchmaking entry:", insertError.message, insertError)
             setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
             setCreatingProposal(false)
             return
@@ -298,7 +298,16 @@ export default function MatchmakingPage() {
               setProposals((prev) => prev.filter((p) => p.id !== payload.old.id))
             }
           )
-          .subscribe()
+          .subscribe((status) => {
+            if (status === "CHANNEL_ERROR") {
+              console.error("Channel error encountered. Retrying subscription...")
+              setTimeout(() => {
+                if (mounted) {
+                  channel?.subscribe()
+                }
+              }, 2000)
+            }
+          })
 
       } catch (e) {
         console.error("Unexpected error:", e)
