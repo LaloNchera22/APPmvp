@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, UserX, Gamepad2, Crown } from "lucide-react"
+import { Loader2, Swords, UserX, Gamepad2, Crown, Plus, Trash2 } from "lucide-react"
 import BetCard from "@/components/BetCard"
 import MatchStatus from "@/components/MatchStatus"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 
 // Define valid games based on Schema Enum GameTitle
 const VALID_GAMES = [
@@ -47,6 +48,8 @@ export default function MatchmakingPage() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [isInLobby, setIsInLobby] = useState(false)
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
+  const [betAmount, setBetAmount] = useState<string>("0")
+  const [creatingProposal, setCreatingProposal] = useState(false)
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
@@ -57,6 +60,81 @@ export default function MatchmakingPage() {
   const handleGameSelect = (gameId: string) => {
     setSelectedGame(gameId)
     setLoading(true)
+    setError(null)
+  }
+
+  // Create a new proposal manually
+  const handleCreateProposal = async () => {
+    if (!selectedGame) return
+
+    setCreatingProposal(true)
+    setError(null)
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            router.push("/login")
+            return
+        }
+
+        const amount = parseFloat(betAmount)
+        if (isNaN(amount) || amount < 0) {
+            setError("Monto de apuesta inválido")
+            setCreatingProposal(false)
+            return
+        }
+
+        // Create new proposal
+        const { data: newProposal, error: insertError } = await supabase
+            .from("active_proposals")
+            .insert({
+                game: selectedGame,
+                bet_amount: amount,
+                creator_id: user.id,
+            })
+            .select()
+            .single()
+
+        if (insertError) {
+            console.error("Error creating matchmaking entry:", insertError)
+            setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
+            setCreatingProposal(false)
+            return
+        }
+
+        if (newProposal) {
+            myProposalIdRef.current = newProposal.id
+            setIsInLobby(true)
+        }
+    } catch (e) {
+        console.error("Unexpected error:", e)
+        setError("Ocurrió un error inesperado al crear la propuesta.")
+    } finally {
+        setCreatingProposal(false)
+    }
+  }
+
+  // Cancel own proposal
+  const handleCancelProposal = async () => {
+      if (!myProposalIdRef.current) return
+
+      try {
+          const { error } = await supabase
+              .from("active_proposals")
+              .delete()
+              .eq("id", myProposalIdRef.current)
+
+          if (error) {
+              console.error("Error cancelling proposal:", error)
+              setError("Error al cancelar la propuesta.")
+              return
+          }
+
+          myProposalIdRef.current = null
+          setIsInLobby(false)
+      } catch (e) {
+          console.error("Unexpected error cancelling:", e)
+      }
   }
 
   // Handle accepting a proposal
@@ -178,34 +256,14 @@ export default function MatchmakingPage() {
             .from("active_proposals")
             .select("id")
             .eq("creator_id", user.id)
-            .maybeSingle() // Use maybeSingle to avoid error if not found
+            .maybeSingle()
 
         if (existingProposal) {
             myProposalIdRef.current = existingProposal.id
             setIsInLobby(true)
         } else {
-             // Create new proposal
-            const { data: newProposal, error: insertError } = await supabase
-            .from("active_proposals")
-            .insert({
-                game: selectedGame,
-                bet_amount: 0,
-                creator_id: user.id,
-            })
-            .select()
-            .single()
-
-            if (insertError) {
-                console.error("Error creating matchmaking entry:", insertError)
-                setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
-                setLoading(false)
-                return
-            }
-
-            if (newProposal) {
-                myProposalIdRef.current = newProposal.id
-                setIsInLobby(true)
-            }
+            // Do NOT automatically create proposal
+            setIsInLobby(false)
         }
 
         // Initial fetch of opponents
@@ -234,6 +292,7 @@ export default function MatchmakingPage() {
               event: "DELETE",
               schema: "public",
               table: "active_proposals",
+              filter: `game=eq.${selectedGame}`,
             },
             (payload) => {
               setProposals((prev) => prev.filter((p) => p.id !== payload.old.id))
@@ -279,7 +338,9 @@ export default function MatchmakingPage() {
       mounted = false
       if (channel) supabase.removeChannel(channel)
 
-      // Cleanup on unmount
+      // Cleanup on unmount - OPTIONAL: We can choose NOT to delete on unmount if we want persistence,
+      // but typically matchmaking lobbies remove you when you leave.
+      // The original code deleted it. I'll keep it for now to avoid stale proposals.
       const idToDelete = myProposalIdRef.current
       if (idToDelete) {
         supabase.from("active_proposals").delete().eq("id", idToDelete).then(({ error }) => {
@@ -339,7 +400,7 @@ export default function MatchmakingPage() {
             Sala de Emparejamiento: {VALID_GAMES.find(g => g.id === selectedGame)?.name}
             </h1>
             <p className="text-gray-400 mt-2">
-                {isInLobby ? "Estás en la sala. Esperando oponentes..." : "Conectando..."}
+                {isInLobby ? "Esperando un oponente..." : "Observando sala..."}
             </p>
         </div>
         <div className="flex gap-2">
@@ -367,28 +428,81 @@ export default function MatchmakingPage() {
         </div>
       )}
 
+      {/* Control Panel for Proposals */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
+          {!isInLobby ? (
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                  <div className="w-full md:w-1/3">
+                      <label className="text-sm text-gray-400 mb-2 block">Monto de Apuesta (USD)</label>
+                      <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={betAmount}
+                          onChange={(e) => setBetAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="bg-black/20 border-white/10 text-white"
+                      />
+                  </div>
+                  <Button
+                      onClick={handleCreateProposal}
+                      disabled={creatingProposal}
+                      className="bg-neon-magenta hover:bg-neon-magenta/80 text-white w-full md:w-auto"
+                  >
+                      {creatingProposal ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                          <Plus className="w-4 h-4 mr-2" />
+                      )}
+                      Crear Propuesta
+                  </Button>
+              </div>
+          ) : (
+              <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                      <Loader2 className="w-6 h-6 text-neon-cyan animate-spin" />
+                      <div>
+                          <p className="text-white font-medium">Buscando oponentes...</p>
+                          <p className="text-sm text-gray-400">Tu propuesta está visible para otros jugadores.</p>
+                      </div>
+                  </div>
+                  <Button
+                      variant="destructive"
+                      onClick={handleCancelProposal}
+                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20"
+                  >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Cancelar Búsqueda
+                  </Button>
+              </div>
+          )}
+      </div>
+
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <Loader2 className="w-10 h-10 text-neon-cyan animate-spin" />
-            <p className="text-gray-400">Conectando a la sala...</p>
+            <p className="text-gray-400">Cargando propuestas...</p>
         </div>
       ) : proposals.length === 0 ? (
         <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
             <Loader2 className="w-8 h-8 text-neon-magenta animate-spin mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">Buscando oponentes...</p>
-            <p className="text-gray-500 text-sm mt-2">No hay oponentes disponibles en este momento.</p>
+            <p className="text-gray-400 text-lg">No hay otras propuestas activas.</p>
+            <p className="text-gray-500 text-sm mt-2">Sé el primero en crear una propuesta.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {proposals.map((proposal) => (
-            <BetCard
-                key={proposal.id}
-                gameTitle="Retador Disponible"
-                winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
-                betAmount={proposal.bet_amount}
-                onAccept={() => handleAcceptProposal(proposal)}
-            />
-            ))}
+        <div className="space-y-4">
+            <h2 className="text-xl font-bold text-white mb-4">Oponentes Disponibles</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {proposals.map((proposal) => (
+                <BetCard
+                    key={proposal.id}
+                    gameTitle="Retador Disponible"
+                    winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
+                    betAmount={proposal.bet_amount}
+                    onAccept={() => handleAcceptProposal(proposal)}
+                />
+                ))}
+            </div>
         </div>
       )}
     </div>
