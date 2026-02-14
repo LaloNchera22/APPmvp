@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy, Home } from "lucide-react"
+import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { User } from "@supabase/supabase-js"
 
@@ -88,12 +88,7 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#050505]/60 backdrop-blur-xl supports-[backdrop-filter]:bg-[#050505]/40">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <Home className="h-6 w-6 text-white hover:text-neon-cyan transition-colors" />
-          </Link>
-
+        <div className="flex h-16 items-center justify-end">
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:gap-6">
             {user ? (
