@@ -54,7 +54,7 @@ export default function MatchmakingPage() {
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
 
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const router = useRouter()
 
   const handleGameSelect = (gameId: string) => {
@@ -298,7 +298,19 @@ export default function MatchmakingPage() {
               setProposals((prev) => prev.filter((p) => p.id !== payload.old.id))
             }
           )
-          .subscribe()
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              console.log("Subscribed to matchmaking lobby")
+            } else if (status === "CHANNEL_ERROR") {
+              console.error("Subscription error")
+              setError("Error de conexión en tiempo real.")
+            } else if (status === "TIMED_OUT") {
+              console.error("Subscription timed out")
+              setError("Tiempo de espera agotado al conectar.")
+            } else if (status === "CLOSED") {
+              console.log("Subscription closed")
+            }
+          })
 
       } catch (e) {
         console.error("Unexpected error:", e)
