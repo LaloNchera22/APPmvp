@@ -17,7 +17,7 @@ const VALID_GAMES = [
   { id: "COD_WARZONE", name: "CoD: Warzone" },
   { id: "DOTA_2", name: "Dota 2" },
   { id: "FC_24", name: "EA FC 24" },
-  { id: "CHESS", name: "Chess.com" },
+  { id: "CHESS_COM", name: "Chess.com" },
 ]
 
 interface Creator {
@@ -27,8 +27,8 @@ interface Creator {
 interface Proposal {
   id: string
   game: string
-  bet_amount: number
-  creator_id: string
+  betAmount: number
+  userId: string
   created_at?: string
   creator?: Creator
 }
@@ -95,8 +95,8 @@ export default function MatchmakingPage() {
             .from("active_proposals")
             .insert({
                 game: selectedGame,
-                bet_amount: amount,
-                creator_id: user.id,
+                betAmount: amount,
+                userId: user.id,
             })
             .select()
             .single()
@@ -152,7 +152,7 @@ export default function MatchmakingPage() {
           // Lock Bet
           const { error: lockError } = await supabase.rpc("lock_bet", {
               p_user_id: user.id,
-              p_amount: proposal.bet_amount
+              p_amount: proposal.betAmount
           })
 
           if (lockError) {
@@ -165,9 +165,9 @@ export default function MatchmakingPage() {
           const { data: newChallenge, error: insertError } = await supabase.from("challenges").insert({
               game: proposal.game,
               metric: "MATCH_WINNER",
-              bet_amount: proposal.bet_amount,
+              bet_amount: proposal.betAmount,
               status: "ACCEPTED",
-              creator_id: proposal.creator_id,
+              creator_id: proposal.userId,
               challenger_id: user.id
           })
           .select()
@@ -252,27 +252,32 @@ export default function MatchmakingPage() {
     const fetchProposals = async () => {
       if (!mounted) return
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-      // Fetch active proposals for the selected game
-      const { data, error } = await supabase
-        .from("active_proposals")
-        .select("*")
-        .eq("game", selectedGame)
-        .order("created_at", { ascending: false })
+        // Fetch active proposals for the selected game
+        const { data, error } = await supabase
+          .from("active_proposals")
+          .select("*")
+          .eq("game", selectedGame)
+          .order("created_at", { ascending: false })
 
-      console.log("Fetch result - Data:", data)
-      console.log("Fetch result - Error:", error)
+        console.log("Fetch result - Data:", data)
+        console.log("Fetch result - Error:", error)
 
-      if (error) {
-        console.error("Error fetching lobby:", error)
-        setError("Error al cargar oponentes.")
-      } else {
-        if (mounted) {
-            setProposals((data as unknown as Proposal[]) || [])
-            setLoading(false)
+        if (error) {
+          console.error("Error fetching lobby:", error)
+          setError("Error al cargar oponentes.")
+        } else {
+          if (mounted) {
+              setProposals((data as unknown as Proposal[]) || [])
+          }
         }
+      } catch (err) {
+        console.error("Unexpected error in fetchProposals:", err)
+      } finally {
+        if (mounted) setLoading(false)
       }
     }
 
@@ -305,20 +310,32 @@ export default function MatchmakingPage() {
         if (!mounted) return
 
         // Realtime subscription using .on('postgres_changes')
-        // Listening to ALL changes (INSERT, UPDATE, DELETE) for the selected game
+        // Listening to INSERT and DELETE events for the selected game
         channel = supabase
-          .channel("room-1")
+          .channel("public:active_proposals")
           .on(
             "postgres_changes",
             {
-              event: "*", // Listen to all events
+              event: "INSERT",
               schema: "public",
               table: "active_proposals",
               filter: `game=eq.${selectedGame}`,
             },
             (payload) => {
-              console.log("Realtime update received:", payload)
-              // Refresh the list on any change
+              console.log("Realtime INSERT received:", payload)
+              fetchProposals()
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "DELETE",
+              schema: "public",
+              table: "active_proposals",
+              filter: `game=eq.${selectedGame}`,
+            },
+            (payload) => {
+              console.log("Realtime DELETE received:", payload)
               fetchProposals()
             }
           )
@@ -332,6 +349,8 @@ export default function MatchmakingPage() {
             } else if (status === "TIMED_OUT") {
               console.error("Subscription timed out", status)
               setError("Tiempo de espera agotado al conectar.")
+            } else if (status === "CLOSED") {
+              console.log("Subscription closed")
             }
           })
 
@@ -508,7 +527,7 @@ export default function MatchmakingPage() {
                     key={proposal.id}
                     gameTitle="Retador Disponible"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
-                    betAmount={proposal.bet_amount}
+                    betAmount={proposal.betAmount}
                     onAccept={() => handleAcceptProposal(proposal)}
                 />
                 ))}
