@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { createBrowserClient } from "@supabase/ssr"
+import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
 import { Loader2, Swords, UserX, Gamepad2, Crown, Plus, Trash2 } from "lucide-react"
 import BetCard from "@/components/BetCard"
@@ -55,12 +55,7 @@ export default function MatchmakingPage() {
   const myProposalIdRef = useRef<string | null>(null)
 
   // Initialize Supabase client
-  const [supabase] = useState(() =>
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  )
+  const [supabase] = useState(() => createClient())
   const router = useRouter()
 
   const handleGameSelect = (gameId: string) => {
@@ -111,6 +106,8 @@ export default function MatchmakingPage() {
         if (newProposal) {
             myProposalIdRef.current = newProposal.id
             setIsInLobby(true)
+            // Immediately reflect the new proposal in the list
+            setProposals((prev) => [newProposal as Proposal, ...prev])
         }
     } catch (e) {
         console.error("Unexpected error:", e)
@@ -271,6 +268,7 @@ export default function MatchmakingPage() {
           setError("Error al cargar oponentes.")
         } else {
           if (mounted) {
+              setError(null)
               setProposals((data as unknown as Proposal[]) || [])
           }
         }
@@ -514,9 +512,8 @@ export default function MatchmakingPage() {
         </div>
       ) : proposals.length === 0 ? (
         <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-            <Loader2 className="w-8 h-8 text-neon-magenta animate-spin mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">No hay otras propuestas activas.</p>
-            <p className="text-gray-500 text-sm mt-2">Sé el primero en crear una propuesta.</p>
+            <Gamepad2 className="w-8 h-8 text-neon-magenta mx-auto mb-4" />
+            <p className="text-gray-400 text-lg">No hay otras propuestas activas. ¡Sé el primero en crear una!</p>
         </div>
       ) : (
         <div className="space-y-4">
