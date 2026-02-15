@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
     const { creator_id, challenger_id } = challenge
 
     // 2. Fetch Gamer Tags
-    // Assumption: game_accounts table has user_id, game, gamer_tag columns
-    // We assume 'chess' is the identifier for Chess.com. If schema differs, this query will fail or return empty.
+    // Assumption: game_accounts table has user_id, platform, gamer_tag columns
+    // We assume 'CHESS_COM' is the platform identifier for Chess.com.
     const { data: gameAccounts, error: accountsError } = await supabaseAdmin
       .from('game_accounts')
       .select('user_id, gamer_tag')
       .in('user_id', [creator_id, challenger_id])
-      .eq('game', 'chess')
+      .eq('platform', 'CHESS_COM')
 
     if (accountsError) {
       console.error('Error fetching game accounts:', accountsError)
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!gameAccounts || gameAccounts.length < 2) {
-      return NextResponse.json({ error: 'Game accounts not found for both players (need game="chess")' }, { status: 400 })
+      return NextResponse.json({ error: 'Game accounts not found for both players (need platform="CHESS_COM")' }, { status: 400 })
     }
 
     const creatorAccount = gameAccounts.find(acc => acc.user_id === creator_id)
