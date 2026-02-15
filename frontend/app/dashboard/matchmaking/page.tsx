@@ -17,7 +17,7 @@ const VALID_GAMES = [
   { id: "COD_WARZONE", name: "CoD: Warzone" },
   { id: "DOTA_2", name: "Dota 2" },
   { id: "FC_24", name: "EA FC 24" },
-  { id: "CHESS", name: "Chess.com" },
+  { id: "CHESS_COM", name: "Chess.com" },
 ]
 
 interface Creator {
@@ -253,10 +253,13 @@ export default function MatchmakingPage() {
       // Fetch active proposals for the selected game, excluding self
       const { data, error } = await supabase
         .from("active_proposals")
-        .select("*, creator:profiles(username)")
+        .select("*")
         .eq("game", selectedGame)
         .neq("creator_id", user.id)
         .order("created_at", { ascending: false })
+
+      console.log("Fetch result - Data:", data)
+      console.log("Fetch result - Error:", error)
 
       if (error) {
         console.error("Error fetching lobby:", error)
