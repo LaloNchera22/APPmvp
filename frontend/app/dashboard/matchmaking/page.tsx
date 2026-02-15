@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient } from "@/utils/supabase/client"
+import { createBrowserClient } from "@supabase/ssr"
 import { useRouter } from "next/navigation"
 import { Loader2, Swords, UserX, Gamepad2, Crown, Plus, Trash2 } from "lucide-react"
 import BetCard from "@/components/BetCard"
@@ -55,7 +55,12 @@ export default function MatchmakingPage() {
   const myProposalIdRef = useRef<string | null>(null)
 
   // Initialize Supabase client
-  const [supabase] = useState(() => createClient())
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  )
   const router = useRouter()
 
   const handleGameSelect = (gameId: string) => {
@@ -250,12 +255,11 @@ export default function MatchmakingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Fetch active proposals for the selected game, excluding self
+      // Fetch active proposals for the selected game
       const { data, error } = await supabase
         .from("active_proposals")
         .select("*")
         .eq("game", selectedGame)
-        .neq("creator_id", user.id)
         .order("created_at", { ascending: false })
 
       console.log("Fetch result - Data:", data)
@@ -303,7 +307,7 @@ export default function MatchmakingPage() {
         // Realtime subscription using .on('postgres_changes')
         // Listening to ALL changes (INSERT, UPDATE, DELETE) for the selected game
         channel = supabase
-          .channel(`matchmaking_lobby_${selectedGame}`)
+          .channel("room-1")
           .on(
             "postgres_changes",
             {
@@ -319,13 +323,14 @@ export default function MatchmakingPage() {
             }
           )
           .subscribe((status) => {
+            console.log("Subscription status:", status)
             if (status === "SUBSCRIBED") {
               console.log("Subscribed to matchmaking lobby for", selectedGame)
             } else if (status === "CHANNEL_ERROR") {
-              console.error("Subscription error")
+              console.error("Subscription error", status)
               setError("Error de conexión en tiempo real.")
             } else if (status === "TIMED_OUT") {
-              console.error("Subscription timed out")
+              console.error("Subscription timed out", status)
               setError("Tiempo de espera agotado al conectar.")
             }
           })
