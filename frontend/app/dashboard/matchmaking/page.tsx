@@ -54,6 +54,7 @@ export default function MatchmakingPage() {
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
 
+  // Initialize Supabase client
   const [supabase] = useState(() => createClient())
   const router = useRouter()
 
@@ -243,82 +244,6 @@ export default function MatchmakingPage() {
     let mounted = true
     let channel: ReturnType<typeof supabase.channel> | null = null
 
-    const initMatchmaking = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          router.push("/login")
-          return
-        }
-
-        // Check if user already has a proposal
-        const { data: existingProposal } = await supabase
-            .from("active_proposals")
-            .select("id")
-            .eq("creator_id", user.id)
-            .maybeSingle()
-
-        if (existingProposal) {
-            myProposalIdRef.current = existingProposal.id
-            setIsInLobby(true)
-        } else {
-            // Do NOT automatically create proposal
-            setIsInLobby(false)
-        }
-
-        // Initial fetch of opponents
-        fetchProposals()
-
-        if (!mounted) return
-
-        // Realtime subscription
-        channel = supabase
-          .channel("matchmaking_lobby")
-          .on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
-            },
-            () => {
-              fetchProposals()
-            }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "DELETE",
-              schema: "public",
-              table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
-            },
-            (payload) => {
-              setProposals((prev) => prev.filter((p) => p.id !== payload.old.id))
-            }
-          )
-          .subscribe((status) => {
-            if (status === "SUBSCRIBED") {
-              console.log("Subscribed to matchmaking lobby")
-            } else if (status === "CHANNEL_ERROR") {
-              console.error("Subscription error")
-              setError("Error de conexión en tiempo real.")
-            } else if (status === "TIMED_OUT") {
-              console.error("Subscription timed out")
-              setError("Tiempo de espera agotado al conectar.")
-            } else if (status === "CLOSED") {
-              console.log("Subscription closed")
-            }
-          })
-
-      } catch (e) {
-        console.error("Unexpected error:", e)
-        setError("Ocurrió un error inesperado.")
-        setLoading(false)
-      }
-    }
-
     const fetchProposals = async () => {
       if (!mounted) return
 
@@ -344,15 +269,80 @@ export default function MatchmakingPage() {
       }
     }
 
+    const initMatchmaking = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push("/login")
+          return
+        }
+
+        // Check if user already has a proposal
+        const { data: existingProposal } = await supabase
+            .from("active_proposals")
+            .select("id")
+            .eq("creator_id", user.id)
+            .maybeSingle()
+
+        if (existingProposal) {
+            myProposalIdRef.current = existingProposal.id
+            setIsInLobby(true)
+        } else {
+            // Do NOT automatically create proposal
+            setIsInLobby(false)
+        }
+
+        // Initial fetch of opponents
+        await fetchProposals()
+
+        if (!mounted) return
+
+        // Realtime subscription using .on('postgres_changes')
+        // Listening to ALL changes (INSERT, UPDATE, DELETE) for the selected game
+        channel = supabase
+          .channel(`matchmaking_lobby_${selectedGame}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*", // Listen to all events
+              schema: "public",
+              table: "active_proposals",
+              filter: `game=eq.${selectedGame}`,
+            },
+            (payload) => {
+              console.log("Realtime update received:", payload)
+              // Refresh the list on any change
+              fetchProposals()
+            }
+          )
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              console.log("Subscribed to matchmaking lobby for", selectedGame)
+            } else if (status === "CHANNEL_ERROR") {
+              console.error("Subscription error")
+              setError("Error de conexión en tiempo real.")
+            } else if (status === "TIMED_OUT") {
+              console.error("Subscription timed out")
+              setError("Tiempo de espera agotado al conectar.")
+            }
+          })
+
+      } catch (e) {
+        console.error("Unexpected error:", e)
+        setError("Ocurrió un error inesperado.")
+        setLoading(false)
+      }
+    }
+
     initMatchmaking()
 
     return () => {
       mounted = false
-      if (channel) supabase.removeChannel(channel)
+      if (channel) {
+          supabase.removeChannel(channel)
+      }
 
-      // Cleanup on unmount - OPTIONAL: We can choose NOT to delete on unmount if we want persistence,
-      // but typically matchmaking lobbies remove you when you leave.
-      // The original code deleted it. I'll keep it for now to avoid stale proposals.
+      // Optional: Cleanup own proposal on unmount
       const idToDelete = myProposalIdRef.current
       if (idToDelete) {
         supabase.from("active_proposals").delete().eq("id", idToDelete).then(({ error }) => {
