@@ -78,8 +78,8 @@ export default function MatchmakingPage() {
         }
 
         const amount = parseFloat(betAmount)
-        if (isNaN(amount) || amount < 0) {
-            setError("Monto de apuesta inválido")
+        if (isNaN(amount) || amount <= 0) {
+            setError("Monto de apuesta inválido. Debe ser mayor a 0.")
             setCreatingProposal(false)
             return
         }
@@ -96,7 +96,7 @@ export default function MatchmakingPage() {
             .single()
 
         if (insertError) {
-            console.error("Error creating matchmaking entry:", insertError)
+            console.error("Error creating matchmaking entry:", insertError.message, insertError)
             setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
             setCreatingProposal(false)
             return
