@@ -308,37 +308,22 @@ export default function MatchmakingPage() {
         if (!mounted) return
 
         // Realtime subscription using .on('postgres_changes')
-        // Listening to INSERT and DELETE events for the selected game
         channel = supabase
-          .channel("public:active_proposals")
+          .channel("matchmaking")
           .on(
             "postgres_changes",
             {
-              event: "INSERT",
+              event: "*",
               schema: "public",
               table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
             },
             (payload) => {
-              console.log("Realtime INSERT received:", payload)
-              fetchProposals()
-            }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "DELETE",
-              schema: "public",
-              table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
-            },
-            (payload) => {
-              console.log("Realtime DELETE received:", payload)
+              console.log("Realtime event received:", payload)
               fetchProposals()
             }
           )
           .subscribe((status) => {
-            console.log("Subscription status:", status)
+            console.log("Status suscripción:", status)
             if (status === "SUBSCRIBED") {
               console.log("Subscribed to matchmaking lobby for", selectedGame)
             } else if (status === "CHANNEL_ERROR") {
@@ -513,7 +498,7 @@ export default function MatchmakingPage() {
       ) : proposals.length === 0 ? (
         <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
             <Gamepad2 className="w-8 h-8 text-neon-magenta mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">No hay otras propuestas activas. ¡Sé el primero en crear una!</p>
+            <p className="text-gray-400 text-lg">Esperando propuestas...</p>
         </div>
       ) : (
         <div className="space-y-4">

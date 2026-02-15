@@ -6,14 +6,18 @@
   - Local:        http://localhost:3000
 
  ✓ Starting...
- ✓ Ready in 1785ms
+ ✓ Ready in 2.1s
  ○ Compiling /middleware ...
- ✓ Compiled /middleware in 1091ms (123 modules)
+ ✓ Compiled /middleware in 1290ms (123 modules)
 Supabase URL or Key is missing in middleware. Using placeholders.
- ○ Compiling / ...
- ✓ Compiled / in 10.9s (1690 modules)
+ ○ Compiling /dashboard/matchmaking ...
+ ✓ Compiled /dashboard/matchmaking in 15.7s (1720 modules)
 Supabase URL or Key is missing. Using placeholders for build.
- GET / 200 in 11812ms
- ✓ Compiled in 1247ms (848 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /dashboard/matchmaking 200 in 16966ms
+ ✓ Compiled in 1543ms (862 modules)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
-[?25h
+ ✓ Compiled in 275ms (123 modules)
+ ✓ Compiled in 1690ms (1702 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
