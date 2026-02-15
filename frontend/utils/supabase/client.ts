@@ -14,6 +14,13 @@ export function createClient() {
 
   return createBrowserClient(
     url,
-    key
+    key,
+    {
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    }
   )
 }
