@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,6 +23,7 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [balance, setBalance] = useState("0.00")
   const [username, setUsername] = useState<string | null>(null)
+  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
@@ -83,6 +85,8 @@ export default function Navbar() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    router.push("/")
+    router.refresh()
   }
 
   return (
