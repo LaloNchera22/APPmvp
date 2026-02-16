@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2, Wallet, X } from "lucide-react"
 import BetCard from "@/components/BetCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,7 @@ export default function MatchmakingPage() {
   const [isInLobby, setIsInLobby] = useState(false)
   const [betAmount, setBetAmount] = useState<string>("0")
   const [creatingProposal, setCreatingProposal] = useState(false)
+  const [insufficientFunds, setInsufficientFunds] = useState(false)
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
@@ -95,6 +96,7 @@ export default function MatchmakingPage() {
   const handleCreateProposal = async () => {
     setCreatingProposal(true)
     setError(null)
+    setInsufficientFunds(false)
 
     try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -106,6 +108,21 @@ export default function MatchmakingPage() {
         const amount = parseFloat(betAmount)
         if (isNaN(amount) || amount <= 0) {
             setError("Monto de apuesta inválido. Debe ser mayor a 0.")
+            setCreatingProposal(false)
+            return
+        }
+
+        // Check wallet balance
+        const { data: wallet } = await supabase
+            .from("wallets")
+            .select("balance")
+            .eq("userId", user.id)
+            .single()
+
+        const currentBalance = wallet ? Number(wallet.balance) : 0
+
+        if (currentBalance < amount) {
+            setInsufficientFunds(true)
             setCreatingProposal(false)
             return
         }
@@ -383,6 +400,35 @@ export default function MatchmakingPage() {
             <p className="text-sm mt-2 text-gray-400">
                 Verifica que la tabla <code>active_proposals</code> tenga habilitada la política RLS para SELECT (pública o autenticada).
             </p>
+        </div>
+      )}
+
+      {insufficientFunds && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex flex-col md:flex-row items-center justify-between mb-6 backdrop-blur-sm gap-4">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500/20 rounded-full shrink-0">
+                    <Wallet className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                    <h3 className="text-white font-bold text-sm">Saldo Insuficiente</h3>
+                    <p className="text-gray-400 text-xs">No tienes suficientes fondos en tu cartera para crear esta apuesta.</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                    variant="outline"
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 h-9 text-xs flex-1 md:flex-none"
+                    onClick={() => router.push("/dashboard/wallet")}
+                >
+                    Ingresar Dinero
+                </Button>
+                <button
+                    onClick={() => setInsufficientFunds(false)}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-full transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
         </div>
       )}
 
