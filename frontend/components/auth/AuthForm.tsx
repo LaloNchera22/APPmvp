@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import GoogleButton from "@/components/auth/GoogleButton"
 
@@ -27,7 +26,6 @@ interface AuthFormProps {
 
 export function AuthForm({ type }: AuthFormProps) {
   const [isLoading, setIsLoading] = React.useState(false)
-  const router = useRouter()
   const supabase = createClient()
 
   const form = useForm<AuthFormValues>({
@@ -48,10 +46,9 @@ export function AuthForm({ type }: AuthFormProps) {
           password: data.password,
         })
         if (error) throw error
-        router.push("/dashboard")
-        router.refresh()
+        window.location.href = "/dashboard"
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
           options: {
@@ -59,7 +56,12 @@ export function AuthForm({ type }: AuthFormProps) {
           },
         })
         if (error) throw error
-        alert("Revisa tu email para confirmar tu cuenta")
+
+        if (signUpData.session) {
+          window.location.href = "/dashboard"
+        } else {
+          alert("Revisa tu email para confirmar tu cuenta")
+        }
       }
     } catch (error) {
       alert((error as Error).message || "Ocurrió un error")
