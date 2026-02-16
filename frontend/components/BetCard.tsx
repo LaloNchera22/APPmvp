@@ -31,7 +31,7 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
 
   return (
     <div className={cn(
-      "glass-card p-6 flex flex-col justify-between h-full border-l-4 border-l-neon-magenta hover:border-l-neon-cyan transition-all duration-300 group relative overflow-hidden"
+      "glass-card p-6 flex flex-col justify-between h-full border-l-4 border-l-neon-magenta transition-all duration-300 group relative overflow-hidden"
     )}>
       {/* Background glow effect on hover */}
       <div className="absolute inset-0 bg-gradient-to-r from-neon-magenta/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
@@ -42,7 +42,7 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
             <h3 className="text-lg font-bold text-white tracking-wide">{displayTitle}</h3>
             <p className="text-sm text-gray-400 mt-1">{displayCondition}</p>
           </div>
-          <div className="p-2 bg-white/5 rounded-lg text-neon-magenta group-hover:text-neon-cyan transition-colors">
+          <div className="p-2 bg-white/5 rounded-lg text-neon-magenta transition-colors">
             <Swords className="w-5 h-5" />
           </div>
         </div>
@@ -51,7 +51,7 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
       <div className="relative z-10 mt-4">
         <div className="flex justify-between items-end mb-4">
           <span className="text-xs text-gray-500 uppercase tracking-wider font-medium">Apuesta</span>
-          <span className="font-mono text-2xl font-bold text-neon-cyan drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]">
+          <span className="font-mono text-2xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
             {formattedAmount}
           </span>
         </div>
