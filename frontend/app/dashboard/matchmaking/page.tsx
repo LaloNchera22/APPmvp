@@ -15,8 +15,8 @@ interface Creator {
 interface Proposal {
   id: string
   game: string
-  betAmount: number
-  userId: string
+  bet_amount: number
+  creator_id: string
   created_at?: string
   creator?: Creator
 }
@@ -115,8 +115,8 @@ export default function MatchmakingPage() {
             .from("active_proposals")
             .insert({
                 game: CHESS_GAME_ID,
-                betAmount: amount,
-                userId: user.id,
+                bet_amount: amount,
+                creator_id: user.id,
             })
             .select()
             .single()
@@ -173,7 +173,7 @@ export default function MatchmakingPage() {
           // Lock Bet
           const { error: lockError } = await supabase.rpc("lock_bet", {
               p_user_id: user.id,
-              p_amount: proposal.betAmount
+              p_amount: proposal.bet_amount
           })
 
           if (lockError) {
@@ -184,11 +184,11 @@ export default function MatchmakingPage() {
 
           // Create active challenge (History/Game)
           const { data: newChallenge, error: insertError } = await supabase.from("challenges").insert({
-              game: proposal.game,
+              game: "CHESS", // Map "CHESS_COM" to "CHESS" enum
               metric: "MATCH_WINNER",
-              bet_amount: proposal.betAmount,
+              bet_amount: proposal.bet_amount,
               status: "ACCEPTED",
-              creator_id: proposal.userId,
+              creator_id: proposal.creator_id,
               challenger_id: user.id
           })
           .select()
@@ -442,7 +442,7 @@ export default function MatchmakingPage() {
                     key={proposal.id}
                     gameTitle="Ajedrez (Chess.com)"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
-                    betAmount={proposal.betAmount}
+                    betAmount={proposal.bet_amount}
                     onAccept={() => handleAcceptProposal(proposal)}
                 />
                 ))}
