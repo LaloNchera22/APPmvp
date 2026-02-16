@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch Challenge Data
     const { data: challenge, error: challengeError } = await supabaseAdmin
       .from('challenges')
-      .select('creator_id, challenger_id, status')
+      .select('creatorId, challengerId, status')
       .eq('id', challengeId)
       .single()
 
@@ -48,16 +48,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 })
     }
 
-    const { creator_id, challenger_id } = challenge
+    const { creatorId, challengerId } = challenge
 
     // 2. Fetch Gamer Tags
-    // Assumption: game_accounts table has user_id, platform, gamer_tag columns
+    // Assumption: game_accounts table has userId, platformId, gamerTag columns
     // We assume 'CHESS_COM' is the platform identifier for Chess.com.
     const { data: gameAccounts, error: accountsError } = await supabaseAdmin
       .from('game_accounts')
-      .select('user_id, gamer_tag')
-      .in('user_id', [creator_id, challenger_id])
-      .eq('platform', 'CHESS_COM')
+      .select('userId, gamerTag')
+      .in('userId', [creatorId, challengerId])
+      .eq('platformId', 'CHESS_COM')
 
     if (accountsError) {
       console.error('Error fetching game accounts:', accountsError)
@@ -65,18 +65,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (!gameAccounts || gameAccounts.length < 2) {
-      return NextResponse.json({ error: 'Game accounts not found for both players (need platform="CHESS_COM")' }, { status: 400 })
+      return NextResponse.json({ error: 'Game accounts not found for both players (need platformId="CHESS_COM")' }, { status: 400 })
     }
 
-    const creatorAccount = gameAccounts.find(acc => acc.user_id === creator_id)
-    const challengerAccount = gameAccounts.find(acc => acc.user_id === challenger_id)
+    const creatorAccount = gameAccounts.find(acc => acc.userId === creatorId)
+    const challengerAccount = gameAccounts.find(acc => acc.userId === challengerId)
 
-    if (!creatorAccount?.gamer_tag || !challengerAccount?.gamer_tag) {
+    if (!creatorAccount?.gamerTag || !challengerAccount?.gamerTag) {
        return NextResponse.json({ error: 'Missing gamer tags for one or both players' }, { status: 400 })
     }
 
-    const creatorUsername = creatorAccount.gamer_tag
-    const challengerUsername = challengerAccount.gamer_tag
+    const creatorUsername = creatorAccount.gamerTag
+    const challengerUsername = challengerAccount.gamerTag
 
     // 3. Fetch Chess.com Archives for Creator
     // Using creator's username to find games.
@@ -143,11 +143,11 @@ export async function POST(req: NextRequest) {
 
     // We only care if someone WON.
     if (latestGame.white.result === 'win') {
-        if (whiteUsername === creatorUsername.toLowerCase()) winnerUserId = creator_id
-        else if (whiteUsername === challengerUsername.toLowerCase()) winnerUserId = challenger_id
+        if (whiteUsername === creatorUsername.toLowerCase()) winnerUserId = creatorId
+        else if (whiteUsername === challengerUsername.toLowerCase()) winnerUserId = challengerId
     } else if (latestGame.black.result === 'win') {
-        if (blackUsername === creatorUsername.toLowerCase()) winnerUserId = creator_id
-        else if (blackUsername === challengerUsername.toLowerCase()) winnerUserId = challenger_id
+        if (blackUsername === creatorUsername.toLowerCase()) winnerUserId = creatorId
+        else if (blackUsername === challengerUsername.toLowerCase()) winnerUserId = challengerId
     }
 
     if (winnerUserId) {

@@ -15,9 +15,9 @@ interface Creator {
 interface Proposal {
   id: string
   game: string
-  bet_amount: number
-  creator_id: string
-  created_at?: string
+  betAmount: number
+  userId: string
+  createdAt?: string
   creator?: Creator
 }
 
@@ -25,8 +25,8 @@ interface Challenge {
   id: string
   game: string
   status: string
-  creator_id: string
-  challenger_id: string
+  creatorId: string
+  challengerId: string
 }
 
 const CHESS_GAME_ID = "CHESS_COM"
@@ -57,7 +57,7 @@ export default function MatchmakingPage() {
               .from("challenges")
               .select("id, status")
               .eq("status", "ACCEPTED")
-              .or(`creator_id.eq.${user.id},challenger_id.eq.${user.id}`)
+              .or(`creatorId.eq.${user.id},challengerId.eq.${user.id}`)
               .maybeSingle()
 
           if (challenge) {
@@ -73,7 +73,7 @@ export default function MatchmakingPage() {
                       event: "INSERT",
                       schema: "public",
                       table: "challenges",
-                      filter: `creator_id=eq.${user.id}`,
+                      filter: `creatorId=eq.${user.id}`,
                   },
                   (payload) => {
                       // Redirect immediately
@@ -115,8 +115,8 @@ export default function MatchmakingPage() {
             .from("active_proposals")
             .insert({
                 game: CHESS_GAME_ID,
-                bet_amount: amount,
-                creator_id: user.id,
+                betAmount: amount,
+                userId: user.id,
             })
             .select()
             .single()
@@ -173,7 +173,7 @@ export default function MatchmakingPage() {
           // Lock Bet
           const { error: lockError } = await supabase.rpc("lock_bet", {
               p_user_id: user.id,
-              p_amount: proposal.bet_amount
+              p_amount: proposal.betAmount
           })
 
           if (lockError) {
@@ -186,10 +186,10 @@ export default function MatchmakingPage() {
           const { data: newChallenge, error: insertError } = await supabase.from("challenges").insert({
               game: "CHESS", // Map "CHESS_COM" to "CHESS" enum
               metric: "MATCH_WINNER",
-              bet_amount: proposal.bet_amount,
+              betAmount: proposal.betAmount,
               status: "ACCEPTED",
-              creator_id: proposal.creator_id,
-              challenger_id: user.id
+              creatorId: proposal.userId,
+              challengerId: user.id
           })
           .select()
           .single()
@@ -236,7 +236,7 @@ export default function MatchmakingPage() {
           .from("active_proposals")
           .select("*")
           .eq("game", CHESS_GAME_ID)
-          .order("created_at", { ascending: false })
+          .order("createdAt", { ascending: false })
 
         if (error) {
           console.error("Error fetching lobby:", error)
@@ -275,7 +275,7 @@ export default function MatchmakingPage() {
         const { data: existingProposal } = await supabase
             .from("active_proposals")
             .select("id")
-            .eq("creator_id", user.id)
+            .eq("userId", user.id)
             .maybeSingle()
 
         if (existingProposal) {
@@ -455,7 +455,7 @@ export default function MatchmakingPage() {
                     key={proposal.id}
                     gameTitle="Ajedrez (Chess.com)"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
-                    betAmount={proposal.bet_amount}
+                    betAmount={proposal.betAmount}
                     onAccept={() => handleAcceptProposal(proposal)}
                 />
                 ))}

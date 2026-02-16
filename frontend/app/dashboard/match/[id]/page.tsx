@@ -13,12 +13,10 @@ interface Challenge {
   id: string
   game: string
   status: string
-  bet_amount?: number | null // snake_case from DB
-  betAmount?: number | null // potential alias
-  creator_id: string
-  challenger_id: string
+  betAmount?: number | null
+  creatorId: string
+  challengerId: string
   gameLink?: string | null
-  gamelink?: string | null // potential casing issue
 }
 
 export default function MatchRoom({ params }: { params: { id: string } }) {
@@ -176,8 +174,8 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
     )
   }
 
-  const isCreator = currentUserId === challenge.creator_id
-  const gameLink = challenge.gameLink || challenge.gamelink
+  const isCreator = currentUserId === challenge.creatorId
+  const gameLink = challenge.gameLink
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4 space-y-8">
@@ -188,7 +186,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
           Sala de Batalla
         </h1>
         <p className="text-gray-400">
-            Apuesta: <span className="text-neon-cyan font-mono font-bold">${challenge.betAmount || challenge.bet_amount}</span>
+            Apuesta: <span className="text-neon-cyan font-mono font-bold">${challenge.betAmount}</span>
         </p>
       </div>
 
