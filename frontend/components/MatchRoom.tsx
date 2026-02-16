@@ -20,7 +20,7 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
         const { data } = await supabase
           .from('match_results')
           .select('*')
-          .eq('challenge_id', matchId)
+          .eq('challengeId', matchId)
           .single()
 
         if (data) {

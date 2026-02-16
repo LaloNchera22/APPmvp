@@ -97,10 +97,10 @@ export default function DashboardPage() {
       const { error: insertError } = await supabase.from("challenges").insert({
         game: validGame.id,
         metric: "MATCH_WINNER",
-        bet_amount: amount,
+        betAmount: amount,
         status: "OPEN",
-        creator_id: user.id,
-        challenger_id: opponentData.id
+        creatorId: user.id,
+        challengerId: opponentData.id
       })
 
       if (insertError) {
