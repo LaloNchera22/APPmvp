@@ -95,6 +95,7 @@ model Challenge {
   metric    WinCondition
   betAmount Decimal         @db.Decimal(10, 2)
   status    ChallengeStatus @default(OPEN)
+  gameLink  String?
 
   // Jugadores
   creatorId String      @db.Uuid
