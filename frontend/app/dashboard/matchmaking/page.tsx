@@ -240,11 +240,20 @@ export default function MatchmakingPage() {
 
         if (error) {
           console.error("Error fetching lobby:", error)
-          setError("Error al cargar oponentes.")
+          // Mostramos el mensaje real de error para depuración
+          setError(`Error al cargar oponentes: ${error.message} (Code: ${error.code})`)
         } else {
           if (mounted) {
               setError(null)
-              setProposals((data as unknown as Proposal[]) || [])
+              // Mapeamos los datos asegurando que la estructura coincida
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const mappedProposals = (data || []).map((item: any) => ({
+                  ...item,
+                  // Si no viene creator por defecto, intentamos usar el perfil si existiera join,
+                  // o dejamos undefined para que se muestre como "Usuario Anónimo"
+                  creator: item.creator || undefined
+              }))
+              setProposals(mappedProposals as Proposal[])
           }
         }
       } catch (err) {
@@ -368,8 +377,12 @@ export default function MatchmakingPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 break-words">
+            <p className="font-bold mb-1">Error de Conexión:</p>
             {error}
+            <p className="text-sm mt-2 text-gray-400">
+                Verifica que la tabla <code>active_proposals</code> tenga habilitada la política RLS para SELECT (pública o autenticada).
+            </p>
         </div>
       )}
 
@@ -405,7 +418,7 @@ export default function MatchmakingPage() {
           ) : (
               <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                      <Loader2 className="w-6 h-6 text-neon-cyan animate-spin" />
+                      <Loader2 className="w-6 h-6 text-neon-magenta animate-spin" />
                       <div>
                           <p className="text-white font-medium">Buscando oponentes...</p>
                           <p className="text-sm text-gray-400">Tu propuesta está visible para otros jugadores.</p>
@@ -425,7 +438,7 @@ export default function MatchmakingPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <Loader2 className="w-10 h-10 text-neon-cyan animate-spin" />
+            <Loader2 className="w-10 h-10 text-neon-magenta animate-spin" />
             <p className="text-gray-400">Cargando propuestas...</p>
         </div>
       ) : proposals.length === 0 ? (
