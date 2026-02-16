@@ -3,22 +3,10 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, UserX, Gamepad2, Crown, Plus, Trash2 } from "lucide-react"
+import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2 } from "lucide-react"
 import BetCard from "@/components/BetCard"
-import MatchStatus from "@/components/MatchStatus"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-
-// Define valid games based on Schema Enum GameTitle
-const VALID_GAMES = [
-  { id: "LEAGUE_OF_LEGENDS", name: "League of Legends" },
-  { id: "VALORANT", name: "Valorant" },
-  { id: "COD_WARZONE", name: "CoD: Warzone" },
-  { id: "DOTA_2", name: "Dota 2" },
-  { id: "FC_24", name: "EA FC 24" },
-  { id: "CHESS_COM", name: "Chess.com" },
-]
 
 interface Creator {
     username: string
@@ -41,13 +29,13 @@ interface Challenge {
   challenger_id: string
 }
 
+const CHESS_GAME_ID = "CHESS_COM"
+
 export default function MatchmakingPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [isInLobby, setIsInLobby] = useState(false)
-  const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
   const [betAmount, setBetAmount] = useState<string>("0")
   const [creatingProposal, setCreatingProposal] = useState(false)
 
@@ -58,16 +46,53 @@ export default function MatchmakingPage() {
   const [supabase] = useState(() => createClient())
   const router = useRouter()
 
-  const handleGameSelect = (gameId: string) => {
-    setSelectedGame(gameId)
-    setLoading(true)
-    setError(null)
-  }
+  // Redirect if active challenge found
+  useEffect(() => {
+      const checkActiveChallenge = async () => {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) return
+
+          // Check if user is in an active challenge
+          const { data: challenge } = await supabase
+              .from("challenges")
+              .select("id, status")
+              .eq("status", "ACCEPTED")
+              .or(`creator_id.eq.${user.id},challenger_id.eq.${user.id}`)
+              .maybeSingle()
+
+          if (challenge) {
+              router.push(`/dashboard/match/${challenge.id}`)
+          }
+
+          // Listen for challenges created where I am the creator (someone accepted my proposal)
+          const channel = supabase
+              .channel("my_challenges_lobby")
+              .on(
+                  "postgres_changes",
+                  {
+                      event: "INSERT",
+                      schema: "public",
+                      table: "challenges",
+                      filter: `creator_id=eq.${user.id}`,
+                  },
+                  (payload) => {
+                      // Redirect immediately
+                      const newChallenge = payload.new as Challenge
+                      router.push(`/dashboard/match/${newChallenge.id}`)
+                  }
+              )
+              .subscribe()
+
+          return () => {
+              supabase.removeChannel(channel)
+          }
+      }
+
+      checkActiveChallenge()
+  }, [supabase, router])
 
   // Create a new proposal manually
   const handleCreateProposal = async () => {
-    if (!selectedGame) return
-
     setCreatingProposal(true)
     setError(null)
 
@@ -89,7 +114,7 @@ export default function MatchmakingPage() {
         const { data: newProposal, error: insertError } = await supabase
             .from("active_proposals")
             .insert({
-                game: selectedGame,
+                game: CHESS_GAME_ID,
                 betAmount: amount,
                 userId: user.id,
             })
@@ -106,7 +131,6 @@ export default function MatchmakingPage() {
         if (newProposal) {
             myProposalIdRef.current = newProposal.id
             setIsInLobby(true)
-            // Immediately reflect the new proposal in the list
             setProposals((prev) => [newProposal as Proposal, ...prev])
         }
     } catch (e) {
@@ -172,10 +196,6 @@ export default function MatchmakingPage() {
 
           if (insertError) throw insertError
 
-          if (newChallenge) {
-             setActiveChallenge(newChallenge)
-          }
-
           // Delete the accepted proposal
           const { error: deleteError } = await supabase
               .from("active_proposals")
@@ -189,7 +209,10 @@ export default function MatchmakingPage() {
               await supabase.from("active_proposals").delete().eq("id", myProposalIdRef.current)
           }
 
-          alert("¡Reto aceptado! La partida ha comenzado.")
+          // Redirect to Match Room
+          if (newChallenge) {
+             router.push(`/dashboard/match/${newChallenge.id}`)
+          }
 
       } catch (e) {
           console.error("Error accepting proposal:", e)
@@ -197,52 +220,7 @@ export default function MatchmakingPage() {
       }
   }
 
-  // Effect to check for active challenges and listen for new ones (as creator)
   useEffect(() => {
-      const checkActiveChallenge = async () => {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return
-
-          // Check if user is in an active challenge
-          const { data: challenge } = await supabase
-              .from("challenges")
-              .select("*")
-              .eq("status", "ACCEPTED")
-              .or(`creator_id.eq.${user.id},challenger_id.eq.${user.id}`)
-              .maybeSingle()
-
-          if (challenge) {
-              setActiveChallenge(challenge)
-          }
-
-          // Listen for challenges created where I am the creator (someone accepted my proposal)
-          const channel = supabase
-              .channel("my_challenges")
-              .on(
-                  "postgres_changes",
-                  {
-                      event: "INSERT",
-                      schema: "public",
-                      table: "challenges",
-                      filter: `creator_id=eq.${user.id}`,
-                  },
-                  (payload) => {
-                      setActiveChallenge(payload.new as Challenge)
-                  }
-              )
-              .subscribe()
-
-          return () => {
-              supabase.removeChannel(channel)
-          }
-      }
-
-      checkActiveChallenge()
-  }, [supabase])
-
-  useEffect(() => {
-    if (!selectedGame) return
-
     let mounted = true
     let channel: ReturnType<typeof supabase.channel> | null = null
 
@@ -253,15 +231,12 @@ export default function MatchmakingPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Fetch active proposals for the selected game
+        // Fetch active proposals for Chess
         const { data, error } = await supabase
           .from("active_proposals")
           .select("*")
-          .eq("game", selectedGame)
+          .eq("game", CHESS_GAME_ID)
           .order("created_at", { ascending: false })
-
-        console.log("Fetch result - Data:", data)
-        console.log("Fetch result - Error:", error)
 
         if (error) {
           console.error("Error fetching lobby:", error)
@@ -298,26 +273,24 @@ export default function MatchmakingPage() {
             myProposalIdRef.current = existingProposal.id
             setIsInLobby(true)
         } else {
-            // Do NOT automatically create proposal
             setIsInLobby(false)
         }
 
-        // Initial fetch of opponents
+        // Initial fetch
         await fetchProposals()
 
         if (!mounted) return
 
-        // Realtime subscription using .on('postgres_changes')
-        // Listening to INSERT and DELETE events for the selected game
+        // Realtime subscription
         channel = supabase
-          .channel("public:active_proposals")
+          .channel("public:active_proposals_chess")
           .on(
             "postgres_changes",
             {
               event: "INSERT",
               schema: "public",
               table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
+              filter: `game=eq.${CHESS_GAME_ID}`,
             },
             (payload) => {
               console.log("Realtime INSERT received:", payload)
@@ -330,27 +303,14 @@ export default function MatchmakingPage() {
               event: "DELETE",
               schema: "public",
               table: "active_proposals",
-              filter: `game=eq.${selectedGame}`,
+              filter: `game=eq.${CHESS_GAME_ID}`,
             },
             (payload) => {
               console.log("Realtime DELETE received:", payload)
               fetchProposals()
             }
           )
-          .subscribe((status) => {
-            console.log("Subscription status:", status)
-            if (status === "SUBSCRIBED") {
-              console.log("Subscribed to matchmaking lobby for", selectedGame)
-            } else if (status === "CHANNEL_ERROR") {
-              console.error("Subscription error", status)
-              setError("Error de conexión en tiempo real.")
-            } else if (status === "TIMED_OUT") {
-              console.error("Subscription timed out", status)
-              setError("Tiempo de espera agotado al conectar.")
-            } else if (status === "CLOSED") {
-              console.log("Subscription closed")
-            }
-          })
+          .subscribe()
 
       } catch (e) {
         console.error("Unexpected error:", e)
@@ -367,56 +327,21 @@ export default function MatchmakingPage() {
           supabase.removeChannel(channel)
       }
 
-      // Optional: Cleanup own proposal on unmount
+      // We do NOT delete the proposal on unmount,
+      // allowing the user to navigate away while keeping the proposal active (optional design choice),
+      // BUT typical lobby behavior is to keep it unless explicit cancel or logout.
+      // The original code had:
+      /*
       const idToDelete = myProposalIdRef.current
       if (idToDelete) {
-        supabase.from("active_proposals").delete().eq("id", idToDelete).then(({ error }) => {
-            if (error) console.error("Error cleaning up matchmaking entry:", error)
-        })
+        supabase.from("active_proposals").delete().eq("id", idToDelete)...
       }
+      */
+      // If the user refreshes, they lose the `myProposalIdRef`.
+      // Ideally, the backend cleans up stale proposals, or we check on mount (which we do).
+      // I will keep it persistent so they don't lose their spot on refresh.
     }
-  }, [selectedGame, router, supabase])
-
-  if (activeChallenge) {
-    return (
-       <div className="space-y-6">
-           <h1 className="text-3xl font-bold text-white flex items-center gap-2 mb-6">
-               <Crown className="text-yellow-400 w-8 h-8" />
-               Partida en Curso
-           </h1>
-           <MatchStatus challengeId={activeChallenge.id} />
-       </div>
-    )
-  }
-
-  // If no game selected, show selection screen
-  if (!selectedGame) {
-    return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                <Gamepad2 className="text-neon-magenta w-8 h-8" />
-                Selecciona tu Juego
-            </h1>
-            <p className="text-gray-400">
-                Elige el juego para entrar a la sala de emparejamiento.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {VALID_GAMES.map((game) => (
-                    <Card
-                        key={game.id}
-                        className="cursor-pointer hover:border-neon-cyan transition-all bg-white/5 border-white/10"
-                        onClick={() => handleGameSelect(game.id)}
-                    >
-                        <CardContent className="p-6 flex items-center justify-center flex-col gap-4">
-                            <Swords className="w-12 h-12 text-neon-magenta" />
-                            <h3 className="text-xl font-bold text-white">{game.name}</h3>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-        </div>
-    )
-  }
+  }, [router, supabase])
 
   return (
     <div className="space-y-6">
@@ -424,27 +349,20 @@ export default function MatchmakingPage() {
         <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-2">
             <Swords className="text-neon-magenta w-8 h-8 animate-pulse" />
-            Sala de Emparejamiento: {VALID_GAMES.find(g => g.id === selectedGame)?.name}
+            Sala de Ajedrez (Chess.com)
             </h1>
             <p className="text-gray-400 mt-2">
-                {isInLobby ? "Esperando un oponente..." : "Observando sala..."}
+                {isInLobby ? "Esperando un oponente..." : "Busca un reto o crea uno nuevo."}
             </p>
         </div>
         <div className="flex gap-2">
-             <Button
-                variant="outline"
-                onClick={() => setSelectedGame(null)}
-                className="border-white/20 text-white hover:bg-white/10"
-            >
-                Cambiar Juego
-            </Button>
             <Button
                 variant="destructive"
                 onClick={() => router.push("/dashboard")}
                 className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 backdrop-blur-md"
             >
                 <UserX className="w-4 h-4 mr-2" />
-                Salir de la Sala
+                Salir
             </Button>
         </div>
       </div>
@@ -522,7 +440,7 @@ export default function MatchmakingPage() {
                 {proposals.map((proposal) => (
                 <BetCard
                     key={proposal.id}
-                    gameTitle="Retador Disponible"
+                    gameTitle="Ajedrez (Chess.com)"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
                     betAmount={proposal.betAmount}
                     onAccept={() => handleAcceptProposal(proposal)}
