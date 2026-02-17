@@ -113,6 +113,14 @@ export default function MatchmakingPage() {
         console.error("Error deleting challenge:", error)
       } else {
         console.log("Challenge deleted successfully")
+
+        // Optimistic update to hide from UI immediately
+        setProposals(prev => prev.filter(p => p.id !== challengeId))
+
+        if (myProposalIdRef.current === challengeId) {
+            myProposalIdRef.current = null
+            setIsInLobby(false)
+        }
       }
     } catch (e) {
       console.error("Error in deleteChallenge:", e)
@@ -194,8 +202,6 @@ export default function MatchmakingPage() {
       if (!myProposalIdRef.current) return
 
       await deleteChallenge(myProposalIdRef.current)
-      myProposalIdRef.current = null
-      setIsInLobby(false)
   }
 
   // Handle accepting a proposal
@@ -518,9 +524,9 @@ export default function MatchmakingPage() {
                     gameTitle="Ajedrez (Chess.com)"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
                     betAmount={proposal.betAmount}
-                    disabled={userId === proposal.creatorId}
-                    actionLabel={userId === proposal.creatorId ? "Tu Propuesta" : "Aceptar Reto"}
-                    onAccept={userId === proposal.creatorId ? undefined : () => handleAcceptProposal(proposal)}
+                    disabled={false}
+                    actionLabel={userId === proposal.creatorId ? "Cancelar" : "Aceptar Reto"}
+                    onAccept={userId === proposal.creatorId ? () => deleteChallenge(proposal.id) : () => handleAcceptProposal(proposal)}
                 />
                 ))}
             </div>
