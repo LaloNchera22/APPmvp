@@ -2,155 +2,53 @@
 > frontend@0.1.0 dev
 > next dev
 
- ⚠ Port 3000 is in use, trying 3001 instead.
   ▲ Next.js 14.2.35
-  - Local:        http://localhost:3001
+  - Local:        http://localhost:3000
 
  ✓ Starting...
- ✓ Ready in 1926ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 1870ms
  ○ Compiling /middleware ...
- ✓ Compiled /middleware in 1496ms (123 modules)
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
+ ✓ Compiled /middleware in 1055ms (123 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+ ○ Compiling /api/debug ...
+ ✓ Compiled /api/debug in 683ms (95 modules)
+Missing Supabase URL or Service Role Key
+ ⨯ Error: Missing Supabase URL or Service Role Key
+    at createAdminClient (webpack-internal:///(rsc)/./utils/supabase/admin.ts:12:15)
+    at GET (webpack-internal:///(rsc)/./app/api/debug/route.ts:10:94)
+    at /app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57234
+    at /app/frontend/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+    at NoopContextManager.with (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:7062)
+    at ContextAPI.with (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:518)
+    at NoopTracer.startActiveSpan (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18093)
+    at ProxyTracer.startActiveSpan (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18854)
+    at /app/frontend/node_modules/next/dist/server/lib/trace/tracer.js:122:103
+    at NoopContextManager.with (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:7062)
+    at ContextAPI.with (/app/frontend/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:518)
+    at NextTracerImpl.trace (/app/frontend/node_modules/next/dist/server/lib/trace/tracer.js:122:28)
+    at /app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:48896
     at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- ○ Compiling /_error ...
- ✓ Compiled /_error in 2.5s (255 modules)
- GET /dashboard 404 in 10ms
- ○ Compiling /_not-found ...
+    at Object.wrap (/app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:40958)
+    at /app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:47472
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at Object.wrap (/app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:38293)
+    at /app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:47434
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at eT.execute (/app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46881)
+    at eT.handle (/app/frontend/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:58771)
+    at doRender (/app/frontend/node_modules/next/dist/server/base-server.js:1366:60)
+    at cacheEntry.responseCache.get.routeKind (/app/frontend/node_modules/next/dist/server/base-server.js:1588:34)
+    at ResponseCache.get (/app/frontend/node_modules/next/dist/server/response-cache/index.js:49:26)
+    at DevServer.renderToResponseWithComponentsImpl (/app/frontend/node_modules/next/dist/server/base-server.js:1496:53)
+ GET /api/debug 500 in 831ms
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
-    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- ✓ Compiled /_not-found in 16.3s (1882 modules)
- GET /dashboard 404 in 3ms
- ⨯ Error [ERR_HTTP_HEADERS_SENT]: Cannot append headers after they are sent to the client
-    at ServerResponse.appendHeader (node:_http_outgoing:756:11)
-digest: "605009736"
-Supabase URL or Key is missing. Using placeholders for build.
- ⨯ Error [ERR_HTTP_HEADERS_SENT]: Cannot append headers after they are sent to the client
-    at ServerResponse.appendHeader (node:_http_outgoing:756:11)
-digest: "605009736"
-Supabase URL or Key is missing. Using placeholders for build.
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
-    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
-    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- GET /dashboard 404 in 2ms
- ⨯ Error [ERR_HTTP_HEADERS_SENT]: Cannot append headers after they are sent to the client
-    at ServerResponse.appendHeader (node:_http_outgoing:756:11)
-digest: "605009736"
-Supabase URL or Key is missing. Using placeholders for build.
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
-    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- GET /dashboard 404 in 3ms
- ⨯ Error [ERR_HTTP_HEADERS_SENT]: Cannot append headers after they are sent to the client
-    at ServerResponse.appendHeader (node:_http_outgoing:756:11)
-digest: "605009736"
-Supabase URL or Key is missing. Using placeholders for build.
- ⨯ Error: Your project's URL and Key are required to create a Supabase client!
-
-Check your Supabase project's API settings to find these values
-
-https://supabase.com/dashboard/project/_/settings/api
-    at <unknown> (https://supabase.com/dashboard/project/_/settings/api)
-    at createServerClient (webpack-internal:///(middleware)/./node_modules/@supabase/ssr/dist/module/createServerClient.js:15:15)
-    at updateSession (webpack-internal:///(middleware)/./utils/supabase/middleware.ts:15:87)
-    at Object.middleware [as handler] (webpack-internal:///(middleware)/./middleware.ts:11:111)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:197:31)
-    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
-    at Object.wrap (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/async-storage/request-async-storage-wrapper.js:105:24)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/web/adapter.js:188:122)
-    at eval (webpack-internal:///(middleware)/./node_modules/next/dist/esm/server/lib/trace/tracer.js:115:36)
-    at NoopContextManager.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:7062)
-    at ContextAPI.with (webpack-internal:///(middleware)/./node_modules/next/dist/compiled/@opentelemetry/api/index.js:2:518)
- GET /dashboard 404 in 2ms
- ⨯ Error [ERR_HTTP_HEADERS_SENT]: Cannot append headers after they are sent to the client
-    at ServerResponse.appendHeader (node:_http_outgoing:756:11)
-digest: "605009736"
-Supabase URL or Key is missing. Using placeholders for build.
- ✓ Compiled in 146ms (123 modules)
+ ✓ Compiled in 129ms (94 modules)
 Supabase URL or Key is missing in middleware. Using placeholders.
-Supabase URL or Key is missing in middleware. Using placeholders.
- ○ Compiling /login ...
- ✓ Compiled /login in 2.1s (2045 modules)
-Supabase URL or Key is missing. Using placeholders for build.
-Supabase URL or Key is missing. Using placeholders for build.
-Supabase URL or Key is missing. Using placeholders for build.
- GET /login 200 in 2489ms
-Supabase URL or Key is missing in middleware. Using placeholders.
-Supabase URL or Key is missing in middleware. Using placeholders.
-Supabase URL or Key is missing. Using placeholders for build.
-Supabase URL or Key is missing. Using placeholders for build.
-Supabase URL or Key is missing. Using placeholders for build.
- GET /login 200 in 45ms
-<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ GET /api/debug 500 in 58ms
+ ✓ Compiled in 75ms
+ ✓ Compiled in 3.8s (326 modules)

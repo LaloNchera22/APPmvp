@@ -30,8 +30,8 @@ interface Challenge {
 }
 
 // User said: "Variables de la Tabla challenges: ... gameLink (text)".
-// Existing Accept API uses 'CHESS'.
-const CHESS_GAME_TYPE = "CHESS"
+// Existing Accept API uses 'CHESS_COM' to match platformId.
+const CHESS_GAME_TYPE = "CHESS_COM"
 
 export default function MatchmakingPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
