@@ -14,9 +14,9 @@ interface Creator {
 
 interface Proposal {
   id: string
-  game: string
+  game?: string
   betAmount: number
-  userId: string
+  creatorId: string
   createdAt?: string
   creator?: Creator
 }
@@ -29,7 +29,9 @@ interface Challenge {
   challengerId: string
 }
 
-const CHESS_GAME_ID = "CHESS_COM"
+// User said: "Variables de la Tabla challenges: ... gameLink (text)".
+// Existing Accept API uses 'CHESS'.
+const CHESS_GAME_TYPE = "CHESS"
 
 export default function MatchmakingPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
@@ -58,7 +60,7 @@ export default function MatchmakingPage() {
           const { data: challenge } = await supabase
               .from("challenges")
               .select("id, status")
-              .eq("status", "ACCEPTED")
+              .eq("status", "IN_PROGRESS")
               .or(`creatorId.eq.${user.id},challengerId.eq.${user.id}`)
               .maybeSingle()
 
@@ -66,21 +68,22 @@ export default function MatchmakingPage() {
               router.push(`/dashboard/match/${challenge.id}`)
           }
 
-          // Listen for challenges created where I am the creator (someone accepted my proposal)
+          // Listen for challenges updates (someone accepted my proposal -> IN_PROGRESS)
           const channel = supabase
               .channel("my_challenges_lobby")
               .on(
                   "postgres_changes",
                   {
-                      event: "INSERT",
+                      event: "UPDATE",
                       schema: "public",
                       table: "challenges",
                       filter: `creatorId=eq.${user.id}`,
                   },
                   (payload) => {
-                      // Redirect immediately
-                      const newChallenge = payload.new as Challenge
-                      router.push(`/dashboard/match/${newChallenge.id}`)
+                      const updatedChallenge = payload.new as Challenge
+                      if (updatedChallenge.status === "IN_PROGRESS") {
+                          router.push(`/dashboard/match/${updatedChallenge.id}`)
+                      }
                   }
               )
               .subscribe()
@@ -129,13 +132,16 @@ export default function MatchmakingPage() {
             return
         }
 
-        // Create new proposal
+        // Create new proposal (Insert into challenges with status OPEN)
         const { data: newProposal, error: insertError } = await supabase
-            .from("active_proposals")
+            .from("challenges")
             .insert({
-                game: CHESS_GAME_ID,
+                game: CHESS_GAME_TYPE,
                 betAmount: amount,
-                userId: user.id,
+                creatorId: user.id,
+                status: 'OPEN',
+                challengerId: null,
+                gameLink: null
             })
             .select()
             .single()
@@ -166,7 +172,7 @@ export default function MatchmakingPage() {
 
       try {
           const { error } = await supabase
-              .from("active_proposals")
+              .from("challenges")
               .delete()
               .eq("id", myProposalIdRef.current)
 
@@ -196,7 +202,7 @@ export default function MatchmakingPage() {
               headers: {
                   'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ proposalId: proposal.id })
+              body: JSON.stringify({ challengeId: proposal.id })
           })
 
           const data = await response.json()
@@ -249,11 +255,12 @@ export default function MatchmakingPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Fetch active proposals for Chess
+        // Fetch active proposals (Open Challenges) for Chess
         const { data, error } = await supabase
-          .from("active_proposals")
+          .from("challenges")
           .select("*")
-          .eq("game", CHESS_GAME_ID)
+          .eq("status", "OPEN")
+          .eq("game", CHESS_GAME_TYPE)
           .order("createdAt", { ascending: false })
 
         if (error) {
@@ -289,11 +296,12 @@ export default function MatchmakingPage() {
           return
         }
 
-        // Check if user already has a proposal
+        // Check if user already has a proposal (Open Challenge)
         const { data: existingProposal } = await supabase
-            .from("active_proposals")
+            .from("challenges")
             .select("id")
-            .eq("userId", user.id)
+            .eq("creatorId", user.id)
+            .eq("status", "OPEN")
             .maybeSingle()
 
         if (existingProposal) {
@@ -310,14 +318,14 @@ export default function MatchmakingPage() {
 
         // Realtime subscription
         channel = supabase
-          .channel("public:active_proposals_chess")
+          .channel("public:challenges_chess")
           .on(
             "postgres_changes",
             {
               event: "INSERT",
               schema: "public",
-              table: "active_proposals",
-              filter: `game=eq.${CHESS_GAME_ID}`,
+              table: "challenges",
+              filter: `status=eq.OPEN`,
             },
             (payload) => {
               console.log("Realtime INSERT received:", payload)
@@ -329,13 +337,24 @@ export default function MatchmakingPage() {
             {
               event: "DELETE",
               schema: "public",
-              table: "active_proposals",
-              filter: `game=eq.${CHESS_GAME_ID}`,
+              table: "challenges",
             },
             (payload) => {
               console.log("Realtime DELETE received:", payload)
               fetchProposals()
             }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "challenges",
+            },
+             (payload) => {
+               console.log("Realtime UPDATE received:", payload)
+               fetchProposals()
+             }
           )
           .subscribe()
 
