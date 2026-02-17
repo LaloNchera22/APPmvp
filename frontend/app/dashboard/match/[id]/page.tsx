@@ -175,7 +175,8 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
   }
 
   const isCreator = currentUserId === challenge.creatorId
-  const gameLink = challenge.gameLink
+  // Treat generic link as null to trigger manual flow fallback
+  const gameLink = (challenge.gameLink === "https://www.chess.com/play/online") ? null : challenge.gameLink
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4 space-y-8">
