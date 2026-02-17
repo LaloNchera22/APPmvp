@@ -51,8 +51,6 @@ export async function POST(req: NextRequest) {
     const { creatorId, challengerId } = challenge
 
     // 2. Fetch Gamer Tags
-    // Assumption: game_accounts table has userId, platformId, gamerTag columns
-    // We assume 'CHESS_COM' is the platform identifier for Chess.com.
     const { data: gameAccounts, error: accountsError } = await supabaseAdmin
       .from('game_accounts')
       .select('userId, gamerTag')
@@ -79,7 +77,6 @@ export async function POST(req: NextRequest) {
     const challengerUsername = challengerAccount.gamerTag
 
     // 3. Fetch Chess.com Archives for Creator
-    // Using creator's username to find games.
     const archivesUrl = `https://api.chess.com/pub/player/${creatorUsername}/games/archives`
 
     let archivesResponse;
@@ -108,7 +105,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Find Match vs Challenger
-    // Filter by opponent and sort by end_time descending to get the very last game
     const relevantGames = games
       .filter((game: ChessGame) => {
         const white = game.white.username.toLowerCase()
@@ -131,17 +127,11 @@ export async function POST(req: NextRequest) {
     const latestGame = relevantGames[0]
 
     // 6. Determine Winner
-    // If the game is still going, result won't be definitive usually, but 'win' indicates completion.
-
     let winnerUserId: string | null = null;
 
     const whiteUsername = latestGame.white.username.toLowerCase()
     const blackUsername = latestGame.black.username.toLowerCase()
 
-    // Check result
-    // Chess.com results: 'win', 'checkmated', 'abandoned', 'timeout', 'resigned', 'stalemate', 'lose', 'insufficient', '50move', 'repetition', 'agreed'
-
-    // We only care if someone WON.
     if (latestGame.white.result === 'win') {
         if (whiteUsername === creatorUsername.toLowerCase()) winnerUserId = creatorId
         else if (whiteUsername === challengerUsername.toLowerCase()) winnerUserId = challengerId
@@ -152,6 +142,9 @@ export async function POST(req: NextRequest) {
 
     if (winnerUserId) {
         // 7. Implement 100% Payment Logic
+        // Logic: Transfer the TOTAL POT (2 * betAmount) to the winner.
+        // The betAmount was deducted from both players at the start (via lock_bet/escrow),
+        // so adding (2 * betAmount) to the winner effectively transfers the loser's bet to the winner.
 
         // First, check if match is already verified to prevent double payment
         const { data: existingResult } = await supabaseAdmin
@@ -175,16 +168,11 @@ export async function POST(req: NextRequest) {
 
         if (resultError) {
             console.error('Error inserting match result:', resultError)
-            // If error is duplicate key, it means it was just verified.
             if (resultError.code === '23505') { // Unique violation
                  return NextResponse.json({ status: 'COMPLETED', winner: winnerUserId, message: 'Match already verified' })
             }
             return NextResponse.json({ error: 'Failed to record match result' }, { status: 500 })
         }
-
-        // Transfer funds: Winner gets 2 * betAmount (Return bet + Winnings)
-        // Funds were locked (deducted) at start, so we just ADD to winner.
-        // If betAmount is 0 (free game), we skip wallet update or add 0.
 
         const payout = challenge.betAmount * 2
 
@@ -213,7 +201,10 @@ export async function POST(req: NextRequest) {
                             .select()
                             .single()
 
-                        if (!updateError && updated) return true
+                        if (!updateError && updated) {
+                            console.log(`Payment successful: User ${userId} received ${amount}`)
+                            return true
+                        }
                     } catch (e) {
                         console.error("Wallet update error:", e)
                     }
@@ -224,8 +215,6 @@ export async function POST(req: NextRequest) {
             const paid = await updateWallet(winnerUserId, payout)
             if (!paid) {
                 console.error(`CRITICAL: Failed to pay winner ${winnerUserId} amount ${payout} for challenge ${challengeId}`)
-                // Manual intervention might be needed here.
-                // We return error but match_results is already inserted, effectively "locking" the state.
                 return NextResponse.json({ error: 'Match verified but payment failed. Contact support.' }, { status: 500 })
             }
         }
@@ -238,7 +227,6 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ status: 'COMPLETED', winner: winnerUserId, gameUrl: latestGame.url })
     } else {
-        // Draw or no clear winner (e.g. both 'agreed')
         return NextResponse.json({ status: 'PENDING', message: 'Match ended in draw or no clear winner yet', result: { white: latestGame.white.result, black: latestGame.black.result } })
     }
 
