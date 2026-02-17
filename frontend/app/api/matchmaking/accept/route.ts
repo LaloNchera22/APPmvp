@@ -184,7 +184,10 @@ export async function POST(request: Request) {
       }, { status: 500 })
     }
 
-    return NextResponse.json({ challengeId: updatedChallenge.id })
+    return NextResponse.json({
+      challengeId: updatedChallenge.id,
+      gameLink: updatedChallenge.gameLink
+    })
 
   } catch (err: unknown) {
     console.error('Unexpected error in accept challenge:', err)
