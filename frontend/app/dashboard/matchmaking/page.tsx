@@ -69,20 +69,21 @@ export default function MatchmakingPage() {
           }
 
           // Listen for challenges updates (someone accepted my proposal -> IN_PROGRESS)
+          // Since acceptance now creates a NEW row in challenges, we listen for INSERT
           const channel = supabase
               .channel("my_challenges_lobby")
               .on(
                   "postgres_changes",
                   {
-                      event: "UPDATE",
+                      event: "INSERT",
                       schema: "public",
                       table: "challenges",
                       filter: `creatorId=eq.${user.id}`,
                   },
                   (payload) => {
-                      const updatedChallenge = payload.new as Challenge
-                      if (updatedChallenge.status === "IN_PROGRESS") {
-                          router.push(`/dashboard/match/${updatedChallenge.id}`)
+                      const newChallenge = payload.new as Challenge
+                      if (newChallenge.status === "IN_PROGRESS") {
+                          router.push(`/dashboard/match/${newChallenge.id}`)
                       }
                   }
               )
@@ -132,16 +133,13 @@ export default function MatchmakingPage() {
             return
         }
 
-        // Create new proposal (Insert into challenges with status OPEN)
+        // Create new proposal (Insert into active_proposals)
         const { data: newProposal, error: insertError } = await supabase
-            .from("challenges")
+            .from("active_proposals")
             .insert({
                 game: CHESS_GAME_TYPE,
                 betAmount: amount,
-                creatorId: user.id,
-                status: 'OPEN',
-                challengerId: null,
-                gameLink: null
+                creatorId: user.id
             })
             .select()
             .single()
@@ -173,7 +171,7 @@ export default function MatchmakingPage() {
 
       try {
           const { error } = await supabase
-              .from("challenges")
+              .from("active_proposals")
               .delete()
               .eq("id", myProposalIdRef.current)
 
@@ -257,10 +255,10 @@ export default function MatchmakingPage() {
         if (!user) return
 
         // Fetch active proposals (Open Challenges) for Chess
+        // User requested to use active_proposals table
         const { data, error } = await supabase
-          .from("challenges")
-          .select("*")
-          .eq("status", "OPEN")
+          .from("active_proposals")
+          .select("*, creator:profiles(username)")
           .eq("game", CHESS_GAME_TYPE)
           .order("createdAt", { ascending: false })
 
@@ -299,10 +297,9 @@ export default function MatchmakingPage() {
 
         // Check if user already has a proposal (Open Challenge)
         const { data: existingProposal } = await supabase
-            .from("challenges")
+            .from("active_proposals")
             .select("id")
             .eq("creatorId", user.id)
-            .eq("status", "OPEN")
             .maybeSingle()
 
         if (existingProposal) {
@@ -319,14 +316,13 @@ export default function MatchmakingPage() {
 
         // Realtime subscription
         channel = supabase
-          .channel("public:challenges_chess")
+          .channel("public:active_proposals_chess")
           .on(
             "postgres_changes",
             {
               event: "INSERT",
               schema: "public",
-              table: "challenges",
-              filter: `status=eq.OPEN`,
+              table: "active_proposals",
             },
             (payload) => {
               console.log("Realtime INSERT received:", payload)
@@ -338,7 +334,7 @@ export default function MatchmakingPage() {
             {
               event: "DELETE",
               schema: "public",
-              table: "challenges",
+              table: "active_proposals",
             },
             (payload) => {
               console.log("Realtime DELETE received:", payload)
@@ -350,7 +346,7 @@ export default function MatchmakingPage() {
             {
               event: "UPDATE",
               schema: "public",
-              table: "challenges",
+              table: "active_proposals",
             },
              (payload) => {
                console.log("Realtime UPDATE received:", payload)
