@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch Challenge Data
     const { data: challenge, error: challengeError } = await supabaseAdmin
       .from('challenges')
-      .select('creatorId, challengerId, status')
+      .select('creatorId, challengerId, status, betAmount')
       .eq('id', challengeId)
       .single()
 
@@ -151,17 +151,90 @@ export async function POST(req: NextRequest) {
     }
 
     if (winnerUserId) {
-        // 7. Call RPC resolve_match_payment
-        // Using Service Role to execute payment
-        const { error: rpcError } = await supabaseAdmin.rpc('resolve_match_payment', {
-            p_challenge_id: challengeId,
-            p_winner_id: winnerUserId
-        })
+        // 7. Implement 100% Payment Logic
 
-        if (rpcError) {
-            console.error('RPC resolve_match_payment Error:', rpcError)
-            return NextResponse.json({ error: 'Payment resolution failed: ' + rpcError.message }, { status: 500 })
+        // First, check if match is already verified to prevent double payment
+        const { data: existingResult } = await supabaseAdmin
+            .from('match_results')
+            .select('id')
+            .eq('challengeId', challengeId)
+            .single()
+
+        if (existingResult) {
+            return NextResponse.json({ status: 'COMPLETED', winner: winnerUserId, message: 'Match already verified' })
         }
+
+        // Insert into match_results
+        const { error: resultError } = await supabaseAdmin
+            .from('match_results')
+            .insert({
+                challengeId: challengeId,
+                winnerId: winnerUserId,
+                verifiedAt: new Date().toISOString()
+            })
+
+        if (resultError) {
+            console.error('Error inserting match result:', resultError)
+            // If error is duplicate key, it means it was just verified.
+            if (resultError.code === '23505') { // Unique violation
+                 return NextResponse.json({ status: 'COMPLETED', winner: winnerUserId, message: 'Match already verified' })
+            }
+            return NextResponse.json({ error: 'Failed to record match result' }, { status: 500 })
+        }
+
+        // Transfer funds: Winner gets 2 * betAmount (Return bet + Winnings)
+        // Funds were locked (deducted) at start, so we just ADD to winner.
+        // If betAmount is 0 (free game), we skip wallet update or add 0.
+
+        const payout = challenge.betAmount * 2
+
+        if (payout > 0) {
+            // Update Winner's Wallet with optimistic locking retry logic
+            const updateWallet = async (userId: string, amount: number) => {
+                const MAX_RETRIES = 3
+                for (let i = 0; i < MAX_RETRIES; i++) {
+                    try {
+                        const { data: wallet, error: fetchError } = await supabaseAdmin
+                            .from('wallets')
+                            .select('balance')
+                            .eq('userId', userId)
+                            .single()
+
+                        if (fetchError || !wallet) continue
+
+                        const currentBalance = Number(wallet.balance)
+                        const newBalance = currentBalance + amount
+
+                        const { data: updated, error: updateError } = await supabaseAdmin
+                            .from('wallets')
+                            .update({ balance: newBalance })
+                            .eq('userId', userId)
+                            .eq('balance', currentBalance)
+                            .select()
+                            .single()
+
+                        if (!updateError && updated) return true
+                    } catch (e) {
+                        console.error("Wallet update error:", e)
+                    }
+                }
+                return false
+            }
+
+            const paid = await updateWallet(winnerUserId, payout)
+            if (!paid) {
+                console.error(`CRITICAL: Failed to pay winner ${winnerUserId} amount ${payout} for challenge ${challengeId}`)
+                // Manual intervention might be needed here.
+                // We return error but match_results is already inserted, effectively "locking" the state.
+                return NextResponse.json({ error: 'Match verified but payment failed. Contact support.' }, { status: 500 })
+            }
+        }
+
+        // Update Challenge Status to COMPLETED
+        await supabaseAdmin
+            .from('challenges')
+            .update({ status: 'COMPLETED' })
+            .eq('id', challengeId)
 
         return NextResponse.json({ status: 'COMPLETED', winner: winnerUserId, gameUrl: latestGame.url })
     } else {
