@@ -16,7 +16,7 @@ const VALID_GAMES = [
   { id: "COD_WARZONE", name: "CoD: Warzone" },
   { id: "DOTA_2", name: "Dota 2" },
   { id: "FC_24", name: "EA FC 24" },
-  { id: "CHESS", name: "Chess.com" },
+  { id: "CHESS_COM", name: "Chess.com" },
 ]
 
 export default function DashboardPage() {
