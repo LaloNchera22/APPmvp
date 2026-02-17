@@ -19,6 +19,7 @@ interface Proposal {
   creatorId: string
   createdAt?: string
   creator?: Creator
+  status?: string
 }
 
 interface Challenge {
@@ -29,8 +30,6 @@ interface Challenge {
   challengerId: string
 }
 
-// User said: "Variables de la Tabla challenges: ... gameLink (text)".
-// Existing Accept API uses 'CHESS_COM' to match platformId.
 const CHESS_GAME_TYPE = "CHESS_COM"
 
 export default function MatchmakingPage() {
@@ -69,13 +68,12 @@ export default function MatchmakingPage() {
           }
 
           // Listen for challenges updates (someone accepted my proposal -> IN_PROGRESS)
-          // Since acceptance now creates a NEW row in challenges, we listen for INSERT
           const channel = supabase
               .channel("my_challenges_lobby")
               .on(
                   "postgres_changes",
                   {
-                      event: "INSERT",
+                      event: "UPDATE",
                       schema: "public",
                       table: "challenges",
                       filter: `creatorId=eq.${user.id}`,
@@ -97,7 +95,7 @@ export default function MatchmakingPage() {
       checkActiveChallenge()
   }, [supabase, router])
 
-  // Create a new proposal manually
+  // Create a new proposal manually (Insert into challenges with status OPEN, no lock)
   const handleCreateProposal = async () => {
     setCreatingProposal(true)
     setError(null)
@@ -133,13 +131,16 @@ export default function MatchmakingPage() {
             return
         }
 
-        // Create new proposal (Insert into active_proposals)
+        // Create new proposal (Insert into challenges)
         const { data: newProposal, error: insertError } = await supabase
-            .from("active_proposals")
+            .from("challenges")
             .insert({
                 game: CHESS_GAME_TYPE,
+                metric: 'MATCH_WINNER',
                 betAmount: amount,
+                status: 'OPEN',
                 creatorId: user.id
+                // challengerId is null, handled by backend Accept
             })
             .select()
             .single()
@@ -155,7 +156,6 @@ export default function MatchmakingPage() {
         if (newProposal) {
             myProposalIdRef.current = newProposal.id
             setIsInLobby(true)
-            setProposals((prev) => [newProposal as Proposal, ...prev])
         }
     } catch (e) {
         console.error("Unexpected error:", e)
@@ -165,13 +165,13 @@ export default function MatchmakingPage() {
     }
   }
 
-  // Cancel own proposal
+  // Cancel own proposal (Delete from challenges)
   const handleCancelProposal = async () => {
       if (!myProposalIdRef.current) return
 
       try {
           const { error } = await supabase
-              .from("active_proposals")
+              .from("challenges")
               .delete()
               .eq("id", myProposalIdRef.current)
 
@@ -212,24 +212,16 @@ export default function MatchmakingPage() {
               // Check for insufficient funds to show UI helper
               if (errorMessage.toLowerCase().includes("saldo insuficiente") || errorMessage.toLowerCase().includes("funds")) {
                    setInsufficientFunds(true)
-                   // We don't clear error here because we want to show the specific message too if needed,
-                   // or maybe the UI handles it. The UI shows `insufficientFunds` block separately.
-                   // If we set `insufficientFunds(true)`, the block appears.
-                   // We can set error to null to avoid double error message if the UI block covers it.
                    setError(null)
               } else {
                    setError(errorMessage)
                    if (data.details) setErrorDetails(data.details)
                    if (data.hint) setErrorDetails(prev => prev ? `${prev} - ${data.hint}` : data.hint)
-
-                   // Log full error for debugging
                    console.error("Server error details:", data)
               }
               return
           }
 
-          // Cleanup my own proposal from local state/ref if exists
-          // The API cleans it up from DB, but we should clear the ref.
           myProposalIdRef.current = null
 
           // Redirect to Match Room
@@ -254,27 +246,24 @@ export default function MatchmakingPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Fetch active proposals (Open Challenges) for Chess
-        // User requested to use active_proposals table
+        // Fetch active proposals (Open Challenges) for Chess from challenges table
         const { data, error } = await supabase
-          .from("active_proposals")
+          .from("challenges")
           .select("*, creator:profiles(username)")
           .eq("game", CHESS_GAME_TYPE)
+          .eq("status", "OPEN")
+          .neq("creatorId", user.id) // Don't show own proposal in list (handled by lobby state)
           .order("createdAt", { ascending: false })
 
         if (error) {
           console.error("Error fetching lobby:", error)
-          // Mostramos el mensaje real de error para depuración
           setError(`Error al cargar oponentes: ${error.message} (Code: ${error.code})`)
         } else {
           if (mounted) {
               setError(null)
-              // Mapeamos los datos asegurando que la estructura coincida
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const mappedProposals = (data || []).map((item: any) => ({
                   ...item,
-                  // Si no viene creator por defecto, intentamos usar el perfil si existiera join,
-                  // o dejamos undefined para que se muestre como "Usuario Anónimo"
                   creator: item.creator || undefined
               }))
               setProposals(mappedProposals as Proposal[])
@@ -297,9 +286,10 @@ export default function MatchmakingPage() {
 
         // Check if user already has a proposal (Open Challenge)
         const { data: existingProposal } = await supabase
-            .from("active_proposals")
+            .from("challenges")
             .select("id")
             .eq("creatorId", user.id)
+            .eq("status", "OPEN")
             .maybeSingle()
 
         if (existingProposal) {
@@ -314,44 +304,21 @@ export default function MatchmakingPage() {
 
         if (!mounted) return
 
-        // Realtime subscription
+        // Realtime subscription to challenges table
         channel = supabase
-          .channel("public:active_proposals_chess")
+          .channel("public:challenges_chess")
           .on(
             "postgres_changes",
             {
-              event: "INSERT",
+              event: "*", // Listen to INSERT, UPDATE, DELETE
               schema: "public",
-              table: "active_proposals",
+              table: "challenges",
+              filter: `game=eq.${CHESS_GAME_TYPE}`, // Filter by game type
             },
             (payload) => {
-              console.log("Realtime INSERT received:", payload)
+              console.log("Realtime event received:", payload)
               fetchProposals()
             }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "DELETE",
-              schema: "public",
-              table: "active_proposals",
-            },
-            (payload) => {
-              console.log("Realtime DELETE received:", payload)
-              fetchProposals()
-            }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "active_proposals",
-            },
-             (payload) => {
-               console.log("Realtime UPDATE received:", payload)
-               fetchProposals()
-             }
           )
           .subscribe()
 
@@ -369,20 +336,6 @@ export default function MatchmakingPage() {
       if (channel) {
           supabase.removeChannel(channel)
       }
-
-      // We do NOT delete the proposal on unmount,
-      // allowing the user to navigate away while keeping the proposal active (optional design choice),
-      // BUT typical lobby behavior is to keep it unless explicit cancel or logout.
-      // The original code had:
-      /*
-      const idToDelete = myProposalIdRef.current
-      if (idToDelete) {
-        supabase.from("active_proposals").delete().eq("id", idToDelete)...
-      }
-      */
-      // If the user refreshes, they lose the `myProposalIdRef`.
-      // Ideally, the backend cleans up stale proposals, or we check on mount (which we do).
-      // I will keep it persistent so they don't lose their spot on refresh.
     }
   }, [router, supabase])
 

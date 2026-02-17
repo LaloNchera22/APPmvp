@@ -19,15 +19,16 @@ export async function POST(request: Request) {
 
     const supabaseAdmin = createAdminClient()
 
-    // 1. Get challenge (proposal) from active_proposals
+    // 1. Get challenge from challenges table (Must be OPEN)
     const { data: challenge, error: fetchError } = await supabaseAdmin
-      .from('active_proposals')
+      .from('challenges')
       .select('*')
       .eq('id', challengeId)
+      .eq('status', 'OPEN')
       .single()
 
     if (fetchError || !challenge) {
-      return NextResponse.json({ error: 'Reto no encontrado.' }, { status: 404 })
+      return NextResponse.json({ error: 'Reto no disponible o ya aceptado.' }, { status: 404 })
     }
 
     if (challenge.creatorId === user.id) {
@@ -35,49 +36,43 @@ export async function POST(request: Request) {
     }
 
     const betAmount = challenge.betAmount
+    const isDirectInvite = !!challenge.challengerId
 
-    // Helper function for refunds with optimistic locking and retries
+    // If it's a direct invite, the challengerId MUST match the user accepting (if set)
+    if (isDirectInvite && challenge.challengerId !== user.id) {
+       return NextResponse.json({ error: 'Este reto no es para ti.' }, { status: 403 })
+    }
+
+    // Helper function for refunds
     const refundUser = async (userId: string, amount: number) => {
       const MAX_RETRIES = 3
       for (let i = 0; i < MAX_RETRIES; i++) {
         try {
-          // 1. Get current balance
           const { data: wallet, error: fetchError } = await supabaseAdmin
             .from('wallets')
             .select('balance')
             .eq('userId', userId)
             .single()
 
-          if (fetchError || !wallet) {
-            console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Could not fetch wallet`, fetchError)
-            continue
-          }
+          if (fetchError || !wallet) continue
 
           const currentBalance = Number(wallet.balance)
           const newBalance = currentBalance + Number(amount)
 
-          // 2. Optimistic Update: Update only if balance matches what we just read
           const { data: updatedWallet, error: updateError } = await supabaseAdmin
             .from('wallets')
             .update({ balance: newBalance })
             .eq('userId', userId)
-            .eq('balance', currentBalance) // Optimistic lock
+            .eq('balance', currentBalance)
             .select()
             .single()
 
           if (updateError) {
-             console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Update error`, updateError)
-             continue
+              console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Update error`, updateError)
+              continue
           }
 
-          if (updatedWallet) {
-             console.log(`Refund successful for user ${userId}: ${amount} returned. New balance: ${updatedWallet.balance}`)
-             return true
-          } else {
-             // If no data returned, it means the row was not updated (likely balance changed by another transaction)
-             console.warn(`Refund retry for user ${userId} (Attempt ${i + 1}): Balance mismatch (Optimistic Lock)`)
-             // Loop continues to retry
-          }
+          if (updatedWallet) return true
         } catch (e) {
           console.error(`Refund exception for user ${userId}:`, e)
         }
@@ -85,7 +80,9 @@ export async function POST(request: Request) {
       return false
     }
 
-    // 2. Lock Challenger Funds first (to avoid touching creator if challenger is broke)
+    // 2. Lock Funds
+
+    // 2a. Lock Challenger Funds (Always)
     const { error: challengerLockError } = await supabaseAdmin.rpc('lock_bet', {
       p_user_id: user.id,
       p_amount: betAmount
@@ -101,136 +98,75 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // 3. Lock Creator Funds
-    const { error: creatorLockError } = await supabaseAdmin.rpc('lock_bet', {
-      p_user_id: challenge.creatorId,
-      p_amount: betAmount
-    })
+    // 2b. Lock Creator Funds (ONLY if not already locked - i.e., NOT a direct invite)
+    if (!isDirectInvite) {
+        const { error: creatorLockError } = await supabaseAdmin.rpc('lock_bet', {
+            p_user_id: challenge.creatorId,
+            p_amount: betAmount
+        })
 
-    if (creatorLockError) {
-      console.error('Creator lock failed:', creatorLockError)
+        if (creatorLockError) {
+            // Rollback: Refund Challenger
+            await refundUser(user.id, betAmount)
 
-      // Rollback: Refund Challenger
-      const refundSuccess = await refundUser(user.id, betAmount)
-
-      const refundMsg = refundSuccess
-        ? 'Se ha reembolsado tu apuesta.'
-        : 'ERROR CRÍTICO: No se pudo reembolsar tu apuesta. Contacta a soporte inmediatamente.'
-
-      return NextResponse.json({
-        error: `El creador del reto ya no tiene fondos suficientes. Se ha cancelado el reto. ${refundMsg}`,
-        details: 'Creator funds lock failed',
-        serverError: creatorLockError
-      }, { status: 400 })
-    }
-
-    // 4. Generate Game Link (if null)
-    let gameLink = challenge.gameLink
-    if (!gameLink) {
-        try {
-            // Fetch game accounts for both players to generate a Chess.com challenge link
-            // Using 'CHESS_COM' platform ID as per verify-chess logic
-            const { data: gameAccounts } = await supabaseAdmin
-                .from('game_accounts')
-                .select('userId, gamerTag')
-                .in('userId', [challenge.creatorId, user.id])
-                .eq('platformId', 'CHESS_COM')
-
-            const creatorAccount = gameAccounts?.find(acc => acc.userId === challenge.creatorId)
-            const challengerAccount = gameAccounts?.find(acc => acc.userId === user.id)
-
-            // If we have the creator's username, we can create a challenge link for them to be the opponent
-            // Or we can create a link for the challenger to click.
-            // A generic 'play/online/new' link usually works if authenticated on chess.com, but having a target is better.
-            // We'll generate a link that pre-fills the opponent.
-            // Ideally, we want a link that BOTH can click and find each other?
-            // Chess.com 'Play a Friend' link sends an invite.
-            // If we provide `https://www.chess.com/play/online/new?opponent={other_user}`, it helps.
-            // We'll store a generic link if tags missing.
-
-            if (creatorAccount?.gamerTag && challengerAccount?.gamerTag) {
-                // We'll store the link for the challenger to click? Or just a base link?
-                // The prompt says "generate a link... so both players see the link".
-                // Maybe a neutral link? No such thing easily.
-                // We'll use the creator's profile as the target for the challenger,
-                // and the challenger's profile as target for creator?
-                // But the DB stores ONE link.
-                // We'll store a link pointing to the match if possible, or just the base "Play" url.
-                // Or maybe just `https://www.chess.com/play/online`.
-                // But user asked to generate "a link".
-                // I will use a link to the creator's challenge page if possible?
-                // `https://www.chess.com/member/{creator_username}`?
-                // Let's use `https://www.chess.com/play/online`. It's safe.
-                // But wait, "Si gameLink es NULL, genera un link...". This implies value.
-                // If I just set it to `https://www.chess.com/play/online`, it's static.
-                // I'll try to append the opponent for the challenger.
-                // But since both view the same link, it might be confusing if it presets 'vs Creator'.
-                // The Creator sees 'vs Creator' (themselves)?
-                // Okay, I'll generate `https://www.chess.com/play/online` as a fallback,
-                // but if I have usernames, maybe `https://www.chess.com/play/online` is best
-                // and let them handle the challenge manually via friend list?
-                // Prompt: "genera un link de Chess.com y guárdalo."
-                // I'll stick to `https://www.chess.com/play/online`.
-                // Actually, let's look at `verify-chess` again. It uses archives.
-                // It relies on them actually playing.
-                // I'll use `https://www.chess.com/play/online`.
-                gameLink = "https://www.chess.com/play/online"
-            } else {
-                gameLink = "https://www.chess.com/play/online"
-            }
-        } catch (e) {
-            console.error("Error generating link:", e)
-            gameLink = "https://www.chess.com/play/online"
+            return NextResponse.json({
+                error: 'El creador del reto ya no tiene fondos suficientes. Se ha cancelado el reto.',
+                details: 'Creator funds lock failed'
+            }, { status: 400 })
         }
     }
 
-    // 5. Create Challenge in 'challenges' table (IN_PROGRESS)
-    const { data: newChallenge, error: createError } = await supabaseAdmin
+    // 3. Generate Game Link
+    let gameLink = "https://www.chess.com/play/online"
+    try {
+        const { data: gameAccounts } = await supabaseAdmin
+            .from('game_accounts')
+            .select('userId, gamerTag')
+            .in('userId', [challenge.creatorId, user.id])
+            .eq('platformId', 'CHESS_COM')
+
+        const creatorAccount = gameAccounts?.find(acc => acc.userId === challenge.creatorId)
+        const challengerAccount = gameAccounts?.find(acc => acc.userId === user.id)
+
+        if (creatorAccount?.gamerTag && challengerAccount?.gamerTag) {
+             gameLink = "https://www.chess.com/play/online"
+        }
+    } catch (e) {
+        console.error("Error generating link:", e)
+    }
+
+    // 4. Update Challenge (IN_PROGRESS)
+    // Critical: Check status is STILL 'OPEN' to prevent race conditions
+    const { data: updatedChallenge, error: updateError } = await supabaseAdmin
       .from('challenges')
-      .insert({
-        game: challenge.game,
-        betAmount: betAmount,
-        creatorId: challenge.creatorId,
-        challengerId: user.id,
+      .update({
         status: 'IN_PROGRESS',
+        challengerId: user.id,
         gameLink: gameLink
       })
+      .eq('id', challengeId)
+      .eq('status', 'OPEN')
       .select()
       .single()
 
-    if (createError) {
-      console.error('Challenge creation error:', createError)
+    if (updateError || !updatedChallenge) {
+      console.error('Challenge update error or race condition:', updateError)
 
-      // Rollback: Refund Challenger AND Creator
-      const refundChallenger = await refundUser(user.id, betAmount)
-      const refundCreator = await refundUser(challenge.creatorId, betAmount)
+      // Rollback: Refund Challenger
+      await refundUser(user.id, betAmount)
 
-      const refundMsg = (refundChallenger && refundCreator)
-        ? 'Se ha reembolsado el dinero a ambas partes.'
-        : 'ERROR CRÍTICO: Falló el reembolso automático. Contacta a soporte.'
+      // Rollback: Refund Creator (ONLY if we locked them here)
+      if (!isDirectInvite) {
+          await refundUser(challenge.creatorId, betAmount)
+      }
 
       return NextResponse.json({
-        error: `Error al crear el reto: ${createError.message}. ${refundMsg}`,
-        details: createError.details,
-        hint: createError.hint,
-        code: createError.code
+        error: 'No se pudo actualizar el reto. Es posible que alguien más lo haya aceptado.',
+        details: updateError?.message
       }, { status: 500 })
     }
 
-    // 6. Delete proposal from active_proposals
-    await supabaseAdmin.from('active_proposals').delete().eq('id', challengeId)
-
-    // Cleanup: Remove any other open proposals by the challenger to prevent multi-queuing
-    const { error: cleanupError } = await supabaseAdmin
-        .from('active_proposals')
-        .delete()
-        .eq('creatorId', user.id)
-
-    if (cleanupError) {
-        console.error("Error cleaning up user's other challenges:", cleanupError)
-    }
-
-    return NextResponse.json({ challengeId: newChallenge.id })
+    return NextResponse.json({ challengeId: updatedChallenge.id })
 
   } catch (err) {
     console.error('Unexpected error in accept challenge:', err)
