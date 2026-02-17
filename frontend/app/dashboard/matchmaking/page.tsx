@@ -107,7 +107,7 @@ export default function MatchmakingPage() {
 
         const amount = parseFloat(betAmount)
         if (isNaN(amount) || amount <= 0) {
-            setError("Monto de apuesta inválido. Debe ser mayor a 0.")
+            setError("registra saldo en tu cuenta")
             setCreatingProposal(false)
             return
         }
@@ -395,11 +395,17 @@ export default function MatchmakingPage() {
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 break-words">
-            <p className="font-bold mb-1">Error de Conexión:</p>
-            {error}
-            <p className="text-sm mt-2 text-gray-400">
-                Verifica que la tabla <code>active_proposals</code> tenga habilitada la política RLS para SELECT (pública o autenticada).
-            </p>
+            {error === "registra saldo en tu cuenta" ? (
+                <p className="font-bold">{error}</p>
+            ) : (
+                <>
+                    <p className="font-bold mb-1">Error de Conexión:</p>
+                    {error}
+                    <p className="text-sm mt-2 text-gray-400">
+                        Verifica que la tabla <code>active_proposals</code> tenga habilitada la política RLS para SELECT (pública o autenticada).
+                    </p>
+                </>
+            )}
         </div>
       )}
 
