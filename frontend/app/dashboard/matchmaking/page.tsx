@@ -187,61 +187,46 @@ export default function MatchmakingPage() {
       setError(null)
 
       try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return
-
-          // Lock Bet
-          const { error: lockError } = await supabase.rpc("lock_bet", {
-              p_user_id: user.id,
-              p_amount: proposal.betAmount
+          // Call API endpoint to handle transaction securely
+          const response = await fetch('/api/matchmaking/accept', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ proposalId: proposal.id })
           })
 
-          if (lockError) {
-              console.error("Lock bet error:", lockError)
-              if (lockError.message && lockError.message.includes("Saldo insuficiente")) {
-                  setInsufficientFunds(true)
-                  setError(null)
+          const data = await response.json()
+
+          if (!response.ok) {
+              const errorMessage = data.error || 'Error al aceptar el reto.'
+
+              // Check for insufficient funds to show UI helper
+              if (errorMessage.toLowerCase().includes("saldo insuficiente") || errorMessage.toLowerCase().includes("funds")) {
+                   setInsufficientFunds(true)
+                   // We don't clear error here because we want to show the specific message too if needed,
+                   // or maybe the UI handles it. The UI shows `insufficientFunds` block separately.
+                   // If we set `insufficientFunds(true)`, the block appears.
+                   // We can set error to null to avoid double error message if the UI block covers it.
+                   setError(null)
               } else {
-                  setError("Error al bloquear saldo: " + lockError.message)
+                   setError(errorMessage)
               }
               return
           }
 
-          // Create active challenge (History/Game)
-          const { data: newChallenge, error: insertError } = await supabase.from("challenges").insert({
-              game: "CHESS", // Map "CHESS_COM" to "CHESS" enum
-              metric: "MATCH_WINNER",
-              betAmount: proposal.betAmount,
-              status: "ACCEPTED",
-              creatorId: proposal.userId,
-              challengerId: user.id
-          })
-          .select()
-          .single()
-
-          if (insertError) throw insertError
-
-          // Delete the accepted proposal
-          const { error: deleteError } = await supabase
-              .from("active_proposals")
-              .delete()
-              .eq("id", proposal.id)
-
-          if (deleteError) throw deleteError
-
-          // Cleanup my own proposal if exists
-          if (myProposalIdRef.current) {
-              await supabase.from("active_proposals").delete().eq("id", myProposalIdRef.current)
-          }
+          // Cleanup my own proposal from local state/ref if exists
+          // The API cleans it up from DB, but we should clear the ref.
+          myProposalIdRef.current = null
 
           // Redirect to Match Room
-          if (newChallenge) {
-             router.push(`/dashboard/match/${newChallenge.id}`)
+          if (data.challengeId) {
+             router.push(`/dashboard/match/${data.challengeId}`)
           }
 
       } catch (e) {
           console.error("Error accepting proposal:", e)
-          setError("Error al aceptar el reto. Intenta de nuevo.")
+          setError("Error de conexión al aceptar el reto.")
       }
   }
 
