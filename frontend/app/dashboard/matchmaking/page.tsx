@@ -120,34 +120,32 @@ export default function MatchmakingPage() {
 
   const deleteChallenge = useCallback(async (challengeId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const response = await fetch('/api/matchmaking/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challengeId })
+      })
 
-      const { error } = await supabase
-        .from("challenges")
-        .delete()
-        .eq("id", challengeId)
-        .eq("creatorId", user.id)
+      if (!response.ok) {
+         console.error("Error deleting challenge API:", await response.text())
+         return
+      }
 
-      if (error) {
-        console.error("Error deleting challenge:", error)
-      } else {
-        console.log("Challenge deleted successfully")
+      console.log("Challenge deleted successfully")
 
-        // Optimistic update to hide from UI immediately
-        setProposals(prev => prev.filter(p => p.id !== challengeId))
+      // Optimistic update to hide from UI immediately
+      setProposals(prev => prev.filter(p => p.id !== challengeId))
 
-        if (myProposalIdRef.current === challengeId) {
-            myProposalIdRef.current = null
-            setIsInLobby(false)
-        }
+      if (myProposalIdRef.current === challengeId) {
+          myProposalIdRef.current = null
+          setIsInLobby(false)
       }
     } catch (e) {
       console.error("Error in deleteChallenge:", e)
     }
-  }, [supabase])
+  }, [])
 
-  // Create a new proposal manually (Insert into challenges with status OPEN, no lock)
+  // Create a new proposal manually (Insert into challenges with status OPEN, with lock)
   const handleCreateProposal = async () => {
     setCreatingProposal(true)
     setError(null)
@@ -155,12 +153,6 @@ export default function MatchmakingPage() {
     setInsufficientFunds(false)
 
     try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-            router.push("/login")
-            return
-        }
-
         const amount = parseFloat(betAmount)
         if (isNaN(amount) || amount <= 0) {
             setError("registra saldo en tu cuenta")
@@ -168,45 +160,27 @@ export default function MatchmakingPage() {
             return
         }
 
-        // Check wallet balance
-        const { data: wallet } = await supabase
-            .from("wallets")
-            .select("balance")
-            .eq("userId", user.id)
-            .single()
+        const response = await fetch('/api/matchmaking/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ betAmount: amount, game: CHESS_GAME_TYPE })
+        })
 
-        const currentBalance = wallet ? Number(wallet.balance) : 0
+        const data = await response.json()
 
-        if (currentBalance < amount) {
-            setInsufficientFunds(true)
-            setCreatingProposal(false)
+        if (!response.ok) {
+            const errorMessage = data.error || 'Error al crear la propuesta.'
+            if (errorMessage.toLowerCase().includes("saldo insuficiente") || errorMessage.toLowerCase().includes("funds")) {
+                setInsufficientFunds(true)
+            } else {
+                setError(errorMessage)
+                if (data.details) setErrorDetails(data.details)
+            }
             return
         }
 
-        // Create new proposal (Insert into challenges)
-        const { data: newProposal, error: insertError } = await supabase
-            .from("challenges")
-            .insert({
-                game: CHESS_GAME_TYPE,
-                metric: 'MATCH_WINNER',
-                betAmount: amount,
-                status: 'OPEN',
-                creatorId: user.id
-                // challengerId is null, handled by backend Accept
-            })
-            .select()
-            .single()
-
-        if (insertError) {
-            console.error("Error creating matchmaking entry:", insertError.message, insertError)
-            setError(`Error al crear la propuesta: ${insertError.message}`)
-            setErrorDetails(`${insertError.details || ''} ${insertError.hint || ''} (Code: ${insertError.code})`.trim())
-            setCreatingProposal(false)
-            return
-        }
-
-        if (newProposal) {
-            myProposalIdRef.current = newProposal.id
+        if (data) {
+            myProposalIdRef.current = data.id
             setIsInLobby(true)
         }
     } catch (e) {
@@ -279,24 +253,14 @@ export default function MatchmakingPage() {
       if (isProposalAccepted.current) return
 
       // Use fetch with keepalive as a reliable way to send request during unload
-      // Delete ALL OPEN challenges for this user to ensure no zombies
-      if (userIdRef.current && accessTokenRef.current) {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-        if (supabaseUrl && supabaseKey) {
-          const url = `${supabaseUrl}/rest/v1/challenges?creatorId=eq.${userIdRef.current}&status=eq.OPEN`
-
-          fetch(url, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${accessTokenRef.current}`,
-              'apikey': supabaseKey,
-              'Content-Type': 'application/json'
-            },
-            keepalive: true
+      // We prioritize canceling the current tracked proposal
+      if (myProposalIdRef.current) {
+          fetch('/api/matchmaking/cancel', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ challengeId: myProposalIdRef.current }),
+              keepalive: true
           }).catch(console.error)
-        }
       }
     }
 
@@ -309,11 +273,22 @@ export default function MatchmakingPage() {
       if (!isProposalAccepted.current && userIdRef.current) {
          // Perform cleanup using Supabase client
          const cleanup = async () => {
-             await supabase
+             // Fetch any open challenges created by this user (to handle zombies)
+             const { data: challenges } = await supabase
                 .from("challenges")
-                .delete()
+                .select("id")
                 .eq("creatorId", userIdRef.current)
                 .eq("status", "OPEN")
+
+             if (challenges && challenges.length > 0) {
+                 for (const challenge of challenges) {
+                     await fetch('/api/matchmaking/cancel', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ challengeId: challenge.id })
+                     }).catch(console.error)
+                 }
+             }
          }
          cleanup()
       }

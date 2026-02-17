@@ -3,15 +3,6 @@ import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
-  // Add environment variable check at the start
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('Server configuration error: Missing Supabase URL or Service Role Key')
-    return NextResponse.json(
-      { error: 'Error de configuración del servidor.' },
-      { status: 500 }
-    )
-  }
-
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -116,23 +107,8 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // 2b. Lock Creator Funds (ONLY if not already locked - i.e., NOT a direct invite)
-    if (!isDirectInvite) {
-        const { error: creatorLockError } = await supabaseAdmin.rpc('lock_bet', {
-            p_user_id: challenge.creatorId,
-            p_amount: betAmount
-        })
-
-        if (creatorLockError) {
-            // Rollback: Refund Challenger
-            await refundUser(user.id, betAmount)
-
-            return NextResponse.json({
-                error: 'El creador del reto ya no tiene fondos suficientes. Se ha cancelado el reto.',
-                details: 'Creator funds lock failed'
-            }, { status: 400 })
-        }
-    }
+    // 2b. Lock Creator Funds - REMOVED
+    // Creator funds are now locked when the proposal is created.
 
     // 3. Generate Game Link
     let gameLink = "https://www.chess.com/play/online"
@@ -173,10 +149,11 @@ export async function POST(request: Request) {
       // Rollback: Refund Challenger
       await refundUser(user.id, betAmount)
 
-      // Rollback: Refund Creator (ONLY if we locked them here)
-      if (!isDirectInvite) {
-          await refundUser(challenge.creatorId, betAmount)
-      }
+      // Note: We do NOT refund Creator here. Their funds remain locked in the challenge (status stays OPEN).
+      // Or if the challenge was deleted by someone else, funds might be lost or handled by that delete.
+      // But status=OPEN check ensures we are updating an existing open challenge.
+      // If someone else accepted it, status is IN_PROGRESS, so our update fails (returns null).
+      // In that case, creator funds are properly used by the other acceptor.
 
       return NextResponse.json({
         error: 'No se pudo actualizar el reto. Es posible que alguien más lo haya aceptado.',
