@@ -15,7 +15,7 @@ export default function GoogleButton({ className, ...props }: GoogleButtonProps)
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${location.origin}/auth/callback?next=/dashboard`,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

@@ -52,7 +52,7 @@ export function AuthForm({ type }: AuthFormProps) {
           email: data.email,
           password: data.password,
           options: {
-            emailRedirectTo: `${location.origin}/auth/callback`,
+            emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard`,
           },
         })
         if (error) throw error
@@ -75,7 +75,7 @@ export function AuthForm({ type }: AuthFormProps) {
         const { error } = await supabase.auth.signInWithOAuth({
            provider,
            options: {
-              redirectTo: `${location.origin}/auth/callback`
+              redirectTo: `${location.origin}/auth/callback?next=/dashboard`
            }
         })
         if (error) throw error
