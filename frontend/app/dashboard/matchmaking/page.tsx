@@ -249,7 +249,7 @@ export default function MatchmakingPage() {
         // Fetch active proposals (Open Challenges) for Chess from challenges table
         const { data, error } = await supabase
           .from("challenges")
-          .select("*, creator:profiles(username)")
+          .select("*, creator:profiles!creatorId(username)")
           .eq("game", CHESS_GAME_TYPE)
           .eq("status", "OPEN")
           .neq("creatorId", user.id) // Don't show own proposal in list (handled by lobby state)
