@@ -147,7 +147,7 @@ export async function POST(request: Request) {
         const challengerAccount = gameAccounts?.find(acc => acc.userId === user.id)
 
         if (creatorAccount?.gamerTag && challengerAccount?.gamerTag) {
-             gameLink = "https://www.chess.com/play/online"
+             gameLink = `https://www.chess.com/play/online/new?opponent=${encodeURIComponent(creatorAccount.gamerTag)}`
         }
     } catch (e) {
         console.error("Error generating link:", e)
