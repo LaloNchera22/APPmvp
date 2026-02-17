@@ -148,7 +148,8 @@ export default function MatchmakingPage() {
 
         if (insertError) {
             console.error("Error creating matchmaking entry:", insertError.message, insertError)
-            setError("No se pudo conectar al servidor de emparejamiento. Intenta de nuevo.")
+            setError(`Error al crear la propuesta: ${insertError.message}`)
+            setErrorDetails(`${insertError.details || ''} ${insertError.hint || ''} (Code: ${insertError.code})`.trim())
             setCreatingProposal(false)
             return
         }
