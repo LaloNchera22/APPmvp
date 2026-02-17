@@ -183,6 +183,9 @@ export default function MatchmakingPage() {
 
   // Handle accepting a proposal
   const handleAcceptProposal = async (proposal: Proposal) => {
+      setInsufficientFunds(false)
+      setError(null)
+
       try {
           const { data: { user } } = await supabase.auth.getUser()
           if (!user) return
@@ -195,7 +198,12 @@ export default function MatchmakingPage() {
 
           if (lockError) {
               console.error("Lock bet error:", lockError)
-              setError("Error al bloquear saldo: " + lockError.message)
+              if (lockError.message && lockError.message.includes("Saldo insuficiente")) {
+                  setInsufficientFunds(true)
+                  setError(null)
+              } else {
+                  setError("Error al bloquear saldo: " + lockError.message)
+              }
               return
           }
 
@@ -417,7 +425,7 @@ export default function MatchmakingPage() {
                 </div>
                 <div>
                     <h3 className="text-white font-bold text-sm">Saldo Insuficiente</h3>
-                    <p className="text-gray-400 text-xs">No tienes suficientes fondos en tu cartera para crear esta apuesta.</p>
+                    <p className="text-gray-400 text-xs">No tienes suficientes fondos en tu cartera para realizar esta operación.</p>
                 </div>
             </div>
             <div className="flex items-center gap-2 w-full md:w-auto">
