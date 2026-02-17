@@ -19,19 +19,15 @@ export async function POST(request: Request) {
 
     const supabaseAdmin = createAdminClient()
 
-    // 1. Get challenge to verify status, amount and creator
+    // 1. Get challenge (proposal) from active_proposals
     const { data: challenge, error: fetchError } = await supabaseAdmin
-      .from('challenges')
+      .from('active_proposals')
       .select('*')
       .eq('id', challengeId)
       .single()
 
     if (fetchError || !challenge) {
       return NextResponse.json({ error: 'Reto no encontrado.' }, { status: 404 })
-    }
-
-    if (challenge.status !== 'OPEN') {
-      return NextResponse.json({ error: 'Este reto ya no está disponible.' }, { status: 400 })
     }
 
     if (challenge.creatorId === user.id) {
@@ -188,20 +184,22 @@ export async function POST(request: Request) {
         }
     }
 
-    // 5. Update Challenge to IN_PROGRESS
-    const { data: updatedChallenge, error: updateError } = await supabaseAdmin
+    // 5. Create Challenge in 'challenges' table (IN_PROGRESS)
+    const { data: newChallenge, error: createError } = await supabaseAdmin
       .from('challenges')
-      .update({
-        status: 'IN_PROGRESS',
+      .insert({
+        game: challenge.game,
+        betAmount: betAmount,
+        creatorId: challenge.creatorId,
         challengerId: user.id,
+        status: 'IN_PROGRESS',
         gameLink: gameLink
       })
-      .eq('id', challengeId)
       .select()
       .single()
 
-    if (updateError) {
-      console.error('Challenge update error:', updateError)
+    if (createError) {
+      console.error('Challenge creation error:', createError)
 
       // Rollback: Refund Challenger AND Creator
       const refundChallenger = await refundUser(user.id, betAmount)
@@ -212,40 +210,27 @@ export async function POST(request: Request) {
         : 'ERROR CRÍTICO: Falló el reembolso automático. Contacta a soporte.'
 
       return NextResponse.json({
-        error: `Error al actualizar el reto: ${updateError.message}. ${refundMsg}`,
-        details: updateError.details,
-        hint: updateError.hint,
-        code: updateError.code
+        error: `Error al crear el reto: ${createError.message}. ${refundMsg}`,
+        details: createError.details,
+        hint: createError.hint,
+        code: createError.code
       }, { status: 500 })
     }
 
-    // 6. Cleanup (if using active_proposals table for legacy, delete it, but we moved to challenges)
-    // If we were using active_proposals, we'd delete here.
-    // Since we are using challenges table directly, no cleanup needed for 'active_proposals'
-    // unless the user has both systems running.
-    // I'll assume we only touch challenges now.
+    // 6. Delete proposal from active_proposals
+    await supabaseAdmin.from('active_proposals').delete().eq('id', challengeId)
 
-    // Also, we might want to "cancel" other open challenges by this user?
-    // "Cleanup Challenger's own proposals"
-    // Yes, if the challenger had an OPEN challenge, they can't accept another one?
-    // Or maybe they can?
-    // Usually you can only be in one active game.
-    // I'll leave that logic out unless explicitly requested, to keep it simple.
-    // The previous code did it.
-    // I will delete other OPEN challenges by this user to prevent multi-queuing if that's the rule.
-    // But `creatorId` is the user.
-
+    // Cleanup: Remove any other open proposals by the challenger to prevent multi-queuing
     const { error: cleanupError } = await supabaseAdmin
-        .from('challenges')
+        .from('active_proposals')
         .delete()
         .eq('creatorId', user.id)
-        .eq('status', 'OPEN')
 
     if (cleanupError) {
         console.error("Error cleaning up user's other challenges:", cleanupError)
     }
 
-    return NextResponse.json({ challengeId: updatedChallenge.id })
+    return NextResponse.json({ challengeId: newChallenge.id })
 
   } catch (err) {
     console.error('Unexpected error in accept challenge:', err)
