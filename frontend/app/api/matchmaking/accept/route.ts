@@ -42,7 +42,12 @@ export async function POST(request: Request) {
 
     if (challengerLockError) {
       console.error('Challenger lock failed:', challengerLockError)
-      return NextResponse.json({ error: challengerLockError.message || 'Error al procesar el pago.' }, { status: 400 })
+      return NextResponse.json({
+        error: challengerLockError.message || 'Error al procesar el pago.',
+        details: challengerLockError.details,
+        hint: challengerLockError.hint,
+        code: challengerLockError.code
+      }, { status: 400 })
     }
 
     // 3. Lock Creator Funds
@@ -70,7 +75,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         error: 'El creador de la propuesta ya no tiene fondos suficientes. Se ha cancelado el reto. (Contacta soporte si se descontó tu saldo)',
-        details: 'Creator funds lock failed'
+        details: 'Creator funds lock failed',
+        serverError: creatorLockError // Return raw error for debugging if needed
       }, { status: 400 })
     }
 
@@ -90,7 +96,12 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Challenge insert error:', insertError)
-      return NextResponse.json({ error: 'Error al crear el reto.' }, { status: 500 })
+      return NextResponse.json({
+        error: `Error al crear el reto: ${insertError.message}`,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code
+      }, { status: 500 })
     }
 
     // 5. Delete Proposal

@@ -35,6 +35,7 @@ export default function MatchmakingPage() {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
   const [isInLobby, setIsInLobby] = useState(false)
   const [betAmount, setBetAmount] = useState<string>("0")
   const [creatingProposal, setCreatingProposal] = useState(false)
@@ -96,6 +97,7 @@ export default function MatchmakingPage() {
   const handleCreateProposal = async () => {
     setCreatingProposal(true)
     setError(null)
+    setErrorDetails(null)
     setInsufficientFunds(false)
 
     try {
@@ -185,6 +187,7 @@ export default function MatchmakingPage() {
   const handleAcceptProposal = async (proposal: Proposal) => {
       setInsufficientFunds(false)
       setError(null)
+      setErrorDetails(null)
 
       try {
           // Call API endpoint to handle transaction securely
@@ -211,6 +214,11 @@ export default function MatchmakingPage() {
                    setError(null)
               } else {
                    setError(errorMessage)
+                   if (data.details) setErrorDetails(data.details)
+                   if (data.hint) setErrorDetails(prev => prev ? `${prev} - ${data.hint}` : data.hint)
+
+                   // Log full error for debugging
+                   console.error("Server error details:", data)
               }
               return
           }
@@ -394,9 +402,16 @@ export default function MatchmakingPage() {
                 <>
                     <p className="font-bold mb-1">Error de Conexión:</p>
                     {error}
-                    <p className="text-sm mt-2 text-gray-400">
-                        Verifica que la tabla <code>active_proposals</code> tenga habilitada la política RLS para SELECT (pública o autenticada).
-                    </p>
+                    {errorDetails && (
+                        <p className="text-sm mt-2 text-red-300 font-mono bg-red-950/30 p-2 rounded border border-red-500/10">
+                            Detalles: {errorDetails}
+                        </p>
+                    )}
+                    {(!errorDetails || errorDetails.includes("RLS")) && (
+                        <p className="text-sm mt-2 text-gray-400">
+                             Si el problema persiste, contacta a soporte enviando este error.
+                        </p>
+                    )}
                 </>
             )}
         </div>
