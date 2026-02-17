@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
 import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2, Wallet, X } from "lucide-react"
@@ -45,6 +45,7 @@ export default function MatchmakingPage() {
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
+  const isProposalAccepted = useRef(false)
 
   // Initialize Supabase client
   const [supabase] = useState(() => createClient())
@@ -82,6 +83,7 @@ export default function MatchmakingPage() {
                   (payload) => {
                       const newChallenge = payload.new as Challenge
                       if (newChallenge.status === "IN_PROGRESS") {
+                          isProposalAccepted.current = true
                           router.push(`/dashboard/match/${newChallenge.id}`)
                       }
                   }
@@ -95,6 +97,27 @@ export default function MatchmakingPage() {
 
       checkActiveChallenge()
   }, [supabase, router])
+
+  const deleteChallenge = useCallback(async (challengeId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from("challenges")
+        .delete()
+        .eq("id", challengeId)
+        .eq("creatorId", user.id)
+
+      if (error) {
+        console.error("Error deleting challenge:", error)
+      } else {
+        console.log("Challenge deleted successfully")
+      }
+    } catch (e) {
+      console.error("Error in deleteChallenge:", e)
+    }
+  }, [supabase])
 
   // Create a new proposal manually (Insert into challenges with status OPEN, no lock)
   const handleCreateProposal = async () => {
@@ -170,23 +193,9 @@ export default function MatchmakingPage() {
   const handleCancelProposal = async () => {
       if (!myProposalIdRef.current) return
 
-      try {
-          const { error } = await supabase
-              .from("challenges")
-              .delete()
-              .eq("id", myProposalIdRef.current)
-
-          if (error) {
-              console.error("Error cancelling proposal:", error)
-              setError("Error al cancelar la propuesta.")
-              return
-          }
-
-          myProposalIdRef.current = null
-          setIsInLobby(false)
-      } catch (e) {
-          console.error("Unexpected error cancelling:", e)
-      }
+      await deleteChallenge(myProposalIdRef.current)
+      myProposalIdRef.current = null
+      setIsInLobby(false)
   }
 
   // Handle accepting a proposal
@@ -235,6 +244,28 @@ export default function MatchmakingPage() {
           setError("Error de conexión al aceptar el reto.")
       }
   }
+
+  // Cleanup effect: Handle component unmount and browser close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Best effort cleanup for browser tab close/refresh.
+      // Ideally, a backend scheduled task (Edge Function/Cron) should also clean up
+      // stale 'OPEN' challenges to prevent orphans if the client disconnects abruptly.
+      if (myProposalIdRef.current && !isProposalAccepted.current) {
+        deleteChallenge(myProposalIdRef.current)
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      // Cleanup when navigating away (component unmount)
+      if (myProposalIdRef.current && !isProposalAccepted.current) {
+        deleteChallenge(myProposalIdRef.current)
+      }
+    }
+  }, [deleteChallenge])
 
   useEffect(() => {
     let mounted = true
