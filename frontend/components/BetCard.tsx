@@ -6,9 +6,18 @@ interface BetCardProps {
   winCondition: string
   betAmount: number
   onAccept?: () => void
+  disabled?: boolean
+  actionLabel?: string
 }
 
-export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }: BetCardProps) {
+export default function BetCard({
+  gameTitle,
+  winCondition,
+  betAmount,
+  onAccept,
+  disabled = false,
+  actionLabel = "Aceptar Reto"
+}: BetCardProps) {
   // Helper to format enums (e.g. LEAGUE_OF_LEGENDS -> League Of Legends)
   const formatText = (text: string) => {
     return text
@@ -31,10 +40,13 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
 
   return (
     <div className={cn(
-      "glass-card p-6 flex flex-col justify-between h-full border-l-4 border-l-neon-magenta transition-all duration-300 group relative overflow-hidden"
+      "glass-card p-6 flex flex-col justify-between h-full border-l-4 transition-all duration-300 group relative overflow-hidden",
+      disabled ? "border-l-gray-500 opacity-60" : "border-l-neon-magenta"
     )}>
       {/* Background glow effect on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-neon-magenta/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      {!disabled && (
+        <div className="absolute inset-0 bg-gradient-to-r from-neon-magenta/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      )}
 
       <div>
         <div className="flex justify-between items-start mb-4 relative z-10">
@@ -42,7 +54,10 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
             <h3 className="text-lg font-bold text-white tracking-wide">{displayTitle}</h3>
             <p className="text-sm text-gray-400 mt-1">{displayCondition}</p>
           </div>
-          <div className="p-2 bg-white/5 rounded-lg text-neon-magenta transition-colors">
+          <div className={cn(
+            "p-2 rounded-lg transition-colors",
+            disabled ? "bg-white/5 text-gray-500" : "bg-white/5 text-neon-magenta"
+          )}>
             <Swords className="w-5 h-5" />
           </div>
         </div>
@@ -57,10 +72,16 @@ export default function BetCard({ gameTitle, winCondition, betAmount, onAccept }
         </div>
 
         <button
-          onClick={onAccept}
-          className="w-full py-2.5 px-4 bg-white/10 hover:bg-neon-magenta/20 text-white text-sm font-medium rounded-lg border border-white/10 hover:border-neon-magenta/50 transition-all duration-300 flex items-center justify-center gap-2 group-hover:shadow-[0_0_15px_rgba(217,70,239,0.2)]"
+          onClick={disabled ? undefined : onAccept}
+          disabled={disabled}
+          className={cn(
+            "w-full py-2.5 px-4 text-sm font-medium rounded-lg border transition-all duration-300 flex items-center justify-center gap-2",
+            disabled
+              ? "bg-white/5 text-gray-400 border-white/5 cursor-not-allowed"
+              : "bg-white/10 hover:bg-neon-magenta/20 text-white border-white/10 hover:border-neon-magenta/50 group-hover:shadow-[0_0_15px_rgba(217,70,239,0.2)]"
+          )}
         >
-          <span>Aceptar Reto</span>
+          <span>{actionLabel}</span>
         </button>
       </div>
     </div>

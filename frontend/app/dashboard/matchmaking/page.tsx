@@ -41,6 +41,7 @@ export default function MatchmakingPage() {
   const [betAmount, setBetAmount] = useState<string>("0")
   const [creatingProposal, setCreatingProposal] = useState(false)
   const [insufficientFunds, setInsufficientFunds] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
@@ -252,7 +253,7 @@ export default function MatchmakingPage() {
           .select("*, creator:profiles!creatorId(username)")
           .eq("game", CHESS_GAME_TYPE)
           .eq("status", "OPEN")
-          .neq("creatorId", user.id) // Don't show own proposal in list (handled by lobby state)
+          // Removed neq filter to allow seeing own proposal for validation
           .order("createdAt", { ascending: false })
 
         if (error) {
@@ -283,6 +284,7 @@ export default function MatchmakingPage() {
           router.push("/login")
           return
         }
+        setUserId(user.id)
 
         // Check if user already has a proposal (Open Challenge)
         const { data: existingProposal } = await supabase
@@ -485,7 +487,9 @@ export default function MatchmakingPage() {
                     gameTitle="Ajedrez (Chess.com)"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
                     betAmount={proposal.betAmount}
-                    onAccept={() => handleAcceptProposal(proposal)}
+                    disabled={userId === proposal.creatorId}
+                    actionLabel={userId === proposal.creatorId ? "Tu Propuesta" : "Aceptar Reto"}
+                    onAccept={userId === proposal.creatorId ? undefined : () => handleAcceptProposal(proposal)}
                 />
                 ))}
             </div>
