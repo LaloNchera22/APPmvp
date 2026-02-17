@@ -34,6 +34,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No puedes aceptar tu propia propuesta.' }, { status: 400 })
     }
 
+    // Helper function for refunds with optimistic locking and retries
+    const refundUser = async (userId: string, amount: number) => {
+      const MAX_RETRIES = 3
+      for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+          // 1. Get current balance
+          const { data: wallet, error: fetchError } = await supabaseAdmin
+            .from('wallets')
+            .select('balance')
+            .eq('userId', userId)
+            .single()
+
+          if (fetchError || !wallet) {
+            console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Could not fetch wallet`, fetchError)
+            continue
+          }
+
+          const currentBalance = Number(wallet.balance)
+          const newBalance = currentBalance + Number(amount)
+
+          // 2. Optimistic Update: Update only if balance matches what we just read
+          const { data: updatedWallet, error: updateError } = await supabaseAdmin
+            .from('wallets')
+            .update({ balance: newBalance })
+            .eq('userId', userId)
+            .eq('balance', currentBalance) // Optimistic lock
+            .select()
+            .single()
+
+          if (updateError) {
+             console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Update error`, updateError)
+             continue
+          }
+
+          if (updatedWallet) {
+             console.log(`Refund successful for user ${userId}: ${amount} returned. New balance: ${updatedWallet.balance}`)
+             return true
+          } else {
+             // If no data returned, it means the row was not updated (likely balance changed by another transaction)
+             console.warn(`Refund retry for user ${userId} (Attempt ${i + 1}): Balance mismatch (Optimistic Lock)`)
+             // Loop continues to retry
+          }
+        } catch (e) {
+          console.error(`Refund exception for user ${userId}:`, e)
+        }
+      }
+      return false
+    }
+
     // 2. Lock Challenger Funds first (to avoid touching creator if challenger is broke)
     const { error: challengerLockError } = await supabaseAdmin.rpc('lock_bet', {
       p_user_id: user.id,
@@ -60,21 +109,14 @@ export async function POST(request: Request) {
       console.error('Creator lock failed:', creatorLockError)
 
       // Rollback: Refund Challenger
-      // We assume there is no unlock_bet, so we credit back manually or via another mechanism.
-      // Since we are admin, we can increment the wallet balance.
-      // But safer to just fail for now and log it, or try to refund if possible.
-      // If we can't refund easily, this is a problem.
-      // However, for this MVP fix, I will assume we can just fail.
-      // NOTE: In a real prod env, this needs a transaction or a specific refund RPC.
-      // I'll try to refund by crediting back to wallet directly if possible.
+      const refundSuccess = await refundUser(user.id, proposal.betAmount)
 
-      // Rollback: Refund Challenger
-      // NOTE: In a real prod env, this needs a transaction or a specific refund RPC.
-      // Since we don't have a reliable way to refund without 'unlock_bet' or 'credit_wallet' RPC,
-      // we will return a critical error instructing the user to contact support.
+      const refundMsg = refundSuccess
+        ? 'Se ha reembolsado tu apuesta.'
+        : 'ERROR CRÍTICO: No se pudo reembolsar tu apuesta. Contacta a soporte inmediatamente.'
 
       return NextResponse.json({
-        error: 'El creador de la propuesta ya no tiene fondos suficientes. Se ha cancelado el reto. (Contacta soporte si se descontó tu saldo)',
+        error: `El creador de la propuesta ya no tiene fondos suficientes. Se ha cancelado el reto. ${refundMsg}`,
         details: 'Creator funds lock failed',
         serverError: creatorLockError // Return raw error for debugging if needed
       }, { status: 400 })
@@ -96,8 +138,17 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Challenge insert error:', insertError)
+
+      // Rollback: Refund Challenger AND Creator
+      const refundChallenger = await refundUser(user.id, proposal.betAmount)
+      const refundCreator = await refundUser(proposal.userId, proposal.betAmount)
+
+      const refundMsg = (refundChallenger && refundCreator)
+        ? 'Se ha reembolsado el dinero a ambas partes.'
+        : 'ERROR CRÍTICO: Falló el reembolso automático. Contacta a soporte.'
+
       return NextResponse.json({
-        error: `Error al crear el reto: ${insertError.message}`,
+        error: `Error al crear el reto: ${insertError.message}. ${refundMsg}`,
         details: insertError.details,
         hint: insertError.hint,
         code: insertError.code
