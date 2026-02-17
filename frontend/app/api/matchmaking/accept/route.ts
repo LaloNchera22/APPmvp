@@ -3,6 +3,15 @@ import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
+  // Add environment variable check at the start
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Server configuration error: Missing Supabase URL or Service Role Key')
+    return NextResponse.json(
+      { error: 'Error de configuración del servidor.' },
+      { status: 500 }
+    )
+  }
+
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -17,7 +26,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing challengeId' }, { status: 400 })
     }
 
-    const supabaseAdmin = createAdminClient()
+    let supabaseAdmin
+    try {
+      supabaseAdmin = createAdminClient()
+    } catch (e) {
+      console.error('Failed to create admin client:', e)
+      return NextResponse.json(
+        { error: 'Error de configuración del servidor.' },
+        { status: 500 }
+      )
+    }
 
     // 1. Get challenge from challenges table (Must be OPEN)
     const { data: challenge, error: fetchError } = await supabaseAdmin
@@ -168,8 +186,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ challengeId: updatedChallenge.id })
 
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Unexpected error in accept challenge:', err)
-    return NextResponse.json({ error: 'Ocurrió un error inesperado.' }, { status: 500 })
+    return NextResponse.json({
+      error: 'Ocurrió un error inesperado.',
+      // Ensure no sensitive details are leaked
+    }, { status: 500 })
   }
 }
