@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2, Wallet, X } from "lucide-react"
+import { Loader2, Swords, UserX, Gamepad2, Plus, Trash2, Wallet, X, Copy } from "lucide-react"
 import BetCard from "@/components/BetCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,6 +42,9 @@ export default function MatchmakingPage() {
   const [creatingProposal, setCreatingProposal] = useState(false)
   const [insufficientFunds, setInsufficientFunds] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+
+  const [matchModalOpen, setMatchModalOpen] = useState(false)
+  const [acceptedMatch, setAcceptedMatch] = useState<{ id: string, gameLink: string } | null>(null)
 
   // Ref to track the created proposal ID for cleanup
   const myProposalIdRef = useRef<string | null>(null)
@@ -257,9 +260,10 @@ export default function MatchmakingPage() {
 
           myProposalIdRef.current = null
 
-          // Redirect to Match Room
+          // Open Modal with Link instead of immediate redirect
           if (data.challengeId) {
-             router.push(`/dashboard/match/${data.challengeId}`)
+             setAcceptedMatch({ id: data.challengeId, gameLink: data.gameLink })
+             setMatchModalOpen(true)
           }
 
       } catch (e) {
@@ -573,6 +577,74 @@ export default function MatchmakingPage() {
                 />
                 ))}
             </div>
+        </div>
+      )}
+
+      {/* Match Accepted Modal */}
+      {matchModalOpen && acceptedMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-neon-magenta/30 rounded-2xl p-6 max-w-md w-full relative shadow-[0_0_50px_rgba(217,70,239,0.15)] animate-in zoom-in-95 duration-300">
+            <button
+                onClick={() => router.push(`/dashboard/match/${acceptedMatch.id}`)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+            >
+                <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center text-center space-y-4 pt-2">
+                <div className="w-16 h-16 bg-neon-magenta/10 rounded-full flex items-center justify-center mb-2 ring-1 ring-neon-magenta/30">
+                    <Swords className="w-8 h-8 text-neon-magenta" />
+                </div>
+
+                <div>
+                    <h2 className="text-2xl font-bold text-white mb-1">¡Reto Aceptado!</h2>
+                    <p className="text-gray-400 text-sm">
+                        Se ha generado tu enlace de partida.
+                    </p>
+                </div>
+
+                <div className="w-full bg-black/40 p-3 rounded-lg border border-white/10 flex items-center gap-3 group hover:border-neon-magenta/30 transition-colors">
+                    <div className="flex-1 min-w-0 text-left">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Enlace de Juego</p>
+                        <p className="text-neon-cyan text-sm font-mono truncate">
+                            {acceptedMatch.gameLink}
+                        </p>
+                    </div>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="hover:bg-white/10 shrink-0 h-8 w-8 text-gray-400 hover:text-white"
+                        onClick={() => {
+                            navigator.clipboard.writeText(acceptedMatch.gameLink)
+                        }}
+                    >
+                        <Copy className="w-4 h-4" />
+                    </Button>
+                </div>
+
+                <div className="w-full space-y-3 pt-2">
+                     <a
+                        href={acceptedMatch.gameLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full"
+                     >
+                        <Button className="w-full bg-neon-magenta hover:bg-neon-magenta/90 text-white font-bold h-11 shadow-[0_0_20px_rgba(217,70,239,0.3)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)] transition-all">
+                            <Gamepad2 className="w-4 h-4 mr-2" />
+                            Jugar Ahora en Chess.com
+                        </Button>
+                     </a>
+
+                     <Button
+                        variant="outline"
+                        onClick={() => router.push(`/dashboard/match/${acceptedMatch.id}`)}
+                        className="w-full border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white h-11"
+                     >
+                        Ir a la Sala de Espera
+                     </Button>
+                </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
