@@ -47,9 +47,26 @@ export default function MatchmakingPage() {
   const myProposalIdRef = useRef<string | null>(null)
   const isProposalAccepted = useRef(false)
 
+  // Refs for cleanup access
+  const accessTokenRef = useRef<string | null>(null)
+  const userIdRef = useRef<string | null>(null)
+
   // Initialize Supabase client
   const [supabase] = useState(() => createClient())
   const router = useRouter()
+
+  // Sync userId to ref and get session token
+  useEffect(() => {
+    userIdRef.current = userId
+
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        accessTokenRef.current = session.access_token
+      }
+    }
+    getSession()
+  }, [userId, supabase])
 
   // Redirect if active challenge found
   useEffect(() => {
@@ -254,11 +271,28 @@ export default function MatchmakingPage() {
   // Cleanup effect: Handle component unmount and browser close
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // Best effort cleanup for browser tab close/refresh.
-      // Ideally, a backend scheduled task (Edge Function/Cron) should also clean up
-      // stale 'OPEN' challenges to prevent orphans if the client disconnects abruptly.
-      if (myProposalIdRef.current && !isProposalAccepted.current) {
-        deleteChallenge(myProposalIdRef.current)
+      // Prevent cleanup if match started
+      if (isProposalAccepted.current) return
+
+      // Use fetch with keepalive as a reliable way to send request during unload
+      // Delete ALL OPEN challenges for this user to ensure no zombies
+      if (userIdRef.current && accessTokenRef.current) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (supabaseUrl && supabaseKey) {
+          const url = `${supabaseUrl}/rest/v1/challenges?creatorId=eq.${userIdRef.current}&status=eq.OPEN`
+
+          fetch(url, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessTokenRef.current}`,
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json'
+            },
+            keepalive: true
+          }).catch(console.error)
+        }
       }
     }
 
@@ -266,12 +300,21 @@ export default function MatchmakingPage() {
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload)
+
       // Cleanup when navigating away (component unmount)
-      if (myProposalIdRef.current && !isProposalAccepted.current) {
-        deleteChallenge(myProposalIdRef.current)
+      if (!isProposalAccepted.current && userIdRef.current) {
+         // Perform cleanup using Supabase client
+         const cleanup = async () => {
+             await supabase
+                .from("challenges")
+                .delete()
+                .eq("creatorId", userIdRef.current)
+                .eq("status", "OPEN")
+         }
+         cleanup()
       }
     }
-  }, [deleteChallenge])
+  }, [supabase])
 
   useEffect(() => {
     let mounted = true
