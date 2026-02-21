@@ -128,10 +128,10 @@ export default function MatchmakingPage() {
 
       if (!response.ok) {
          console.error("Error deleting challenge API:", await response.text())
-         return
+         setError("Error al cancelar la propuesta, se ha eliminado de tu vista local.")
+      } else {
+         console.log("Challenge deleted successfully")
       }
-
-      console.log("Challenge deleted successfully")
 
       // Optimistic update to hide from UI immediately
       setProposals(prev => prev.filter(p => p.id !== challengeId))
@@ -406,7 +406,7 @@ export default function MatchmakingPage() {
         <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-2">
             <Swords className="text-neon-magenta w-8 h-8 animate-pulse" />
-            Sala de Ajedrez (Chess.com)
+            Sala de Emparejamiento
             </h1>
             <p className="text-gray-400 mt-2">
                 {isInLobby ? "Esperando un oponente..." : "Busca un reto o crea uno nuevo."}
@@ -543,7 +543,7 @@ export default function MatchmakingPage() {
                 {proposals.map((proposal) => (
                 <BetCard
                     key={proposal.id}
-                    gameTitle="Ajedrez (Chess.com)"
+                    gameTitle="Partida Competitiva"
                     winCondition={proposal.creator?.username ? `Usuario: ${proposal.creator.username}` : "Usuario Anónimo"}
                     betAmount={proposal.betAmount}
                     disabled={false}
