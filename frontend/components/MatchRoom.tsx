@@ -11,8 +11,29 @@ interface MatchRoomProps {
 
 export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
   const [isValidating, setIsValidating] = useState(true)
+  const [lichessId, setLichessId] = useState<string | null>(null)
   const supabase = createClient()
   const intervalRef = useRef<NodeJS.Timeout>()
+
+  useEffect(() => {
+    const fetchChallenge = async () => {
+      try {
+        const { data } = await supabase
+          .from('challenges')
+          .select('lichess_game_id')
+          .eq('id', matchId)
+          .single()
+
+        if (data?.lichess_game_id) {
+          setLichessId(data.lichess_game_id)
+        }
+      } catch (error) {
+        console.error('Error fetching challenge:', error)
+      }
+    }
+
+    fetchChallenge()
+  }, [matchId, supabase])
 
   useEffect(() => {
     const checkResult = async () => {
@@ -39,6 +60,18 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [matchId, supabase])
+
+  if (lichessId) {
+    return (
+      <div className="glass-card w-full h-[600px] md:h-[700px] rounded-xl border border-neon-cyan/30 bg-black/40 backdrop-blur-md max-w-5xl mx-auto relative overflow-hidden shadow-[0_0_50px_-12px_rgba(6,182,212,0.25)]">
+        <iframe
+          src={`https://lichess.org/${lichessId}`}
+          className="w-full h-full border-none"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="glass-card p-8 rounded-xl border border-neon-cyan/30 bg-black/40 backdrop-blur-md max-w-2xl mx-auto text-center relative overflow-hidden shadow-[0_0_50px_-12px_rgba(6,182,212,0.25)]">
