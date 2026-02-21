@@ -180,8 +180,8 @@ export default function MatchmakingPage() {
         }
 
         if (data) {
-            myProposalIdRef.current = data.id
-            setIsInLobby(true)
+            isProposalAccepted.current = true
+            router.push(`/dashboard/match/${data.id}`)
         }
     } catch (e) {
         console.error("Unexpected error:", e)
