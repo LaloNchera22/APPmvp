@@ -123,6 +123,31 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Hero Section for Chess */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-900/50 to-black border border-neon-magenta/20 p-8 md:p-12 shadow-[0_0_50px_rgba(217,70,239,0.1)]">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-neon-magenta/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-4 max-w-2xl">
+            <h2 className="text-4xl font-extrabold text-white tracking-tight">
+              Juega Ajedrez y <span className="text-neon-magenta">Gana</span>
+            </h2>
+            <p className="text-lg text-gray-300 leading-relaxed">
+              Demuestra tus habilidades y gana dinero real en partidas de ajedrez rápidas.
+              Desafía a otros jugadores y obtén tus ganancias al instante.
+            </p>
+            <Link href="/dashboard/matchmaking" className="inline-block">
+              <Button className="bg-neon-magenta text-white font-bold text-lg px-8 py-6 rounded-xl shadow-[0_0_20px_rgba(217,70,239,0.4)] hover:shadow-[0_0_30px_rgba(217,70,239,0.6)] hover:bg-neon-magenta/90 transition-all transform hover:-translate-y-1">
+                <Swords className="w-6 h-6 mr-3 animate-pulse" />
+                Jugar Ajedrez Ahora
+              </Button>
+            </Link>
+          </div>
+          <div className="hidden md:block">
+            <Swords className="w-40 h-40 text-neon-magenta/20 rotate-12" />
+          </div>
+        </div>
+      </div>
+
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Inicio</h1>
         <p className="text-gray-400">Bienvenido a tu panel de control de apuestas.</p>

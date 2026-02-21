@@ -30,6 +30,11 @@ const sidebarItems = [
     icon: Wallet,
   },
   {
+    title: "Jugar Ajedrez",
+    href: "/dashboard/matchmaking",
+    icon: Swords,
+  },
+  {
     title: "Emparejamientos",
     href: "/dashboard/matchups",
     icon: Swords,
@@ -55,21 +60,30 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-2">
-          {sidebarItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                pathname === item.href || pathname?.startsWith(item.href)
-                  ? "bg-white/10 text-neon-cyan"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.title}
-            </Link>
-          ))}
+          {sidebarItems.map((item) => {
+            const isMatchmaking = item.href === "/dashboard/matchmaking"
+            const isActive = pathname === item.href || pathname?.startsWith(item.href)
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  isActive
+                    ? isMatchmaking
+                      ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30"
+                      : "bg-white/10 text-neon-cyan"
+                    : isMatchmaking
+                    ? "text-neon-magenta/80 hover:text-neon-magenta hover:bg-neon-magenta/10 border border-transparent hover:border-neon-magenta/20"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <item.icon className={cn("w-5 h-5", isMatchmaking && "animate-pulse")} />
+                {item.title}
+              </Link>
+            )
+          })}
         </nav>
       </div>
 
