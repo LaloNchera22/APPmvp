@@ -107,26 +107,38 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // 2b. Lock Creator Funds - REMOVED
-    // Creator funds are now locked when the proposal is created.
-
-    // 3. Generate Game Link
-    let gameLink = "https://www.chess.com/play/online"
+    // 3. Create Lichess Game (NEW)
+    let lichessData
     try {
-        const { data: gameAccounts } = await supabaseAdmin
-            .from('game_accounts')
-            .select('userId, gamerTag')
-            .in('userId', [challenge.creatorId, user.id])
-            .eq('platformId', 'CHESS_COM')
+        const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.LICHESS_API_TOKEN}`
+            },
+            // Body can be empty for default open challenge
+        })
 
-        const creatorAccount = gameAccounts?.find(acc => acc.userId === challenge.creatorId)
-        const challengerAccount = gameAccounts?.find(acc => acc.userId === user.id)
-
-        if (creatorAccount?.gamerTag && challengerAccount?.gamerTag) {
-             gameLink = `https://www.chess.com/play/online/new?opponent=${encodeURIComponent(creatorAccount.gamerTag)}`
+        if (!lichessResponse.ok) {
+            throw new Error(`Lichess API error: ${lichessResponse.statusText}`)
         }
+
+        lichessData = await lichessResponse.json()
     } catch (e) {
-        console.error("Error generating link:", e)
+        console.error("Error creating Lichess game:", e)
+        // If Lichess fails, refund challenger and abort
+        await refundUser(user.id, betAmount)
+        return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
+    }
+
+    // Extract ID and URL
+    // Handle both wrapped { challenge: { ... } } and flat { id: ... } responses
+    const lichessGameId = lichessData.challenge?.id || lichessData.id
+    const lichessGameUrl = lichessData.challenge?.url || lichessData.url || `https://lichess.org/${lichessGameId}`
+
+    if (!lichessGameId) {
+        console.error("Invalid Lichess response:", lichessData)
+        await refundUser(user.id, betAmount)
+        return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
     }
 
     // 4. Update Challenge (IN_PROGRESS)
@@ -136,7 +148,8 @@ export async function POST(request: Request) {
       .update({
         status: 'IN_PROGRESS',
         challengerId: user.id,
-        gameLink: gameLink
+        lichess_game_id: lichessGameId, // New column for Lichess ID
+        gameLink: lichessGameUrl // Update gameLink for frontend compatibility
       })
       .eq('id', challengeId)
       .eq('status', 'OPEN')
@@ -148,12 +161,6 @@ export async function POST(request: Request) {
 
       // Rollback: Refund Challenger
       await refundUser(user.id, betAmount)
-
-      // Note: We do NOT refund Creator here. Their funds remain locked in the challenge (status stays OPEN).
-      // Or if the challenge was deleted by someone else, funds might be lost or handled by that delete.
-      // But status=OPEN check ensures we are updating an existing open challenge.
-      // If someone else accepted it, status is IN_PROGRESS, so our update fails (returns null).
-      // In that case, creator funds are properly used by the other acceptor.
 
       return NextResponse.json({
         error: 'No se pudo actualizar el reto. Es posible que alguien más lo haya aceptado.',
@@ -170,7 +177,6 @@ export async function POST(request: Request) {
     console.error('Unexpected error in accept challenge:', err)
     return NextResponse.json({
       error: 'Ocurrió un error inesperado.',
-      // Ensure no sensitive details are leaked
     }, { status: 500 })
   }
 }
