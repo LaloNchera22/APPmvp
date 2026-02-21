@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, CheckCircle, ExternalLink, AlertCircle, Copy } from "lucide-react"
+import { Loader2, Swords, CheckCircle, ExternalLink, AlertCircle, Copy, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ interface Challenge {
   challengerId: string
   gameLink?: string | null
   lichess_game_id?: string | null
+  winnerId?: string | null
 }
 
 export default function MatchRoom({ params }: { params: { id: string } }) {
@@ -146,7 +147,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
 
       if (data.status === 'COMPLETED') {
         setVerifyStatus('COMPLETED')
-        // Dispatch event to update Navbar
+        // Dispatch event to update Navbar balance if we had one
         window.dispatchEvent(new Event('balanceUpdated'))
       } else {
         setVerifyStatus('PENDING')
@@ -186,7 +187,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
   const isCreator = currentUserId === challenge.creatorId
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-10 px-4 space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold text-white flex items-center justify-center gap-2">
@@ -200,7 +201,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
 
       <div className="grid grid-cols-1 gap-8">
           {/* Main Content Area */}
-          <Card className="bg-[#050505]/80 border-white/10">
+          <Card className="bg-[#050505]/80 border-white/10 shadow-2xl backdrop-blur-md">
               <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
                       <ExternalLink className="w-5 h-5 text-neon-cyan" />
@@ -210,40 +211,48 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
               <CardContent className="space-y-6">
                   {challenge.status === 'OPEN' ? (
                       isCreator ? (
-                          <div className="space-y-6 text-center">
-                              <div className="flex flex-col items-center justify-center py-6 space-y-4">
-                                  <Loader2 className="w-12 h-12 text-neon-cyan animate-spin" />
+                          <div className="space-y-8 text-center py-6">
+                              <div className="flex flex-col items-center justify-center space-y-4">
+                                  <div className="relative">
+                                      <div className="absolute inset-0 bg-neon-cyan/20 rounded-full blur-xl animate-pulse"></div>
+                                      <Loader2 className="w-16 h-16 text-neon-cyan animate-spin relative z-10" />
+                                  </div>
                                   <div className="space-y-2">
-                                      <h3 className="text-xl font-bold text-white">Esperando oponente...</h3>
-                                      <p className="text-gray-400 max-w-md mx-auto">
-                                          Comparte el enlace con tu rival para que acepte el reto.
+                                      <h3 className="text-2xl font-bold text-white">Esperando oponente...</h3>
+                                      <p className="text-gray-400 max-w-md mx-auto text-lg">
+                                          Comparte este enlace con tu oponente para comenzar.
                                       </p>
                                   </div>
                               </div>
 
-                              <div className="relative max-w-md mx-auto">
-                                  <Input
-                                    readOnly
-                                    value={inviteLink}
-                                    className="pr-12 bg-black/40 border-white/10 text-gray-300 text-center font-mono text-sm"
-                                  />
-                                  <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="absolute right-1 top-1 h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(inviteLink)
-                                      }}
-                                  >
-                                      <Copy className="w-4 h-4" />
-                                  </Button>
+                              <div className="max-w-xl mx-auto space-y-2">
+                                  <label className="text-sm font-medium text-gray-400">Enlace de invitación</label>
+                                  <div className="relative flex items-center">
+                                      <Input
+                                        readOnly
+                                        value={inviteLink}
+                                        className="pr-12 bg-black/40 border-white/10 text-neon-cyan font-mono text-sm h-12"
+                                      />
+                                      <Button
+                                          size="sm"
+                                          className="absolute right-1 top-1 bottom-1 h-auto w-10 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(inviteLink)
+                                          }}
+                                      >
+                                          <Copy className="w-4 h-4" />
+                                      </Button>
+                                  </div>
                               </div>
                           </div>
                       ) : (
-                          <div className="flex flex-col items-center justify-center py-10 space-y-6 text-center">
-                              <div className="space-y-2">
-                                  <h3 className="text-2xl font-bold text-white">¡Has sido retado!</h3>
-                                  <p className="text-gray-400">
+                          <div className="flex flex-col items-center justify-center py-10 space-y-8 text-center">
+                              <div className="space-y-4">
+                                  <div className="w-20 h-20 bg-neon-magenta/10 rounded-full flex items-center justify-center mx-auto ring-1 ring-neon-magenta/30">
+                                      <Swords className="w-10 h-10 text-neon-magenta" />
+                                  </div>
+                                  <h3 className="text-3xl font-bold text-white">¡Has sido retado!</h3>
+                                  <p className="text-gray-400 text-lg max-w-md mx-auto">
                                       El creador ha puesto <span className="text-neon-cyan font-bold">${challenge.betAmount}</span> en juego.
                                       <br />
                                       ¿Aceptas el desafío?
@@ -253,22 +262,25 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                               <Button
                                 onClick={handleAcceptChallenge}
                                 disabled={accepting}
-                                className="bg-neon-magenta hover:bg-neon-magenta/80 text-white font-bold h-14 px-8 text-lg shadow-[0_0_20px_rgba(217,70,239,0.3)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)] transition-all w-full max-w-sm"
+                                className="bg-neon-magenta hover:bg-neon-magenta/80 text-white font-bold h-16 px-10 text-xl shadow-[0_0_30px_rgba(217,70,239,0.4)] hover:shadow-[0_0_50px_rgba(217,70,239,0.6)] transition-all w-full max-w-sm rounded-xl transform hover:-translate-y-1"
                               >
                                 {accepting ? (
                                   <>
-                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    <Loader2 className="w-6 h-6 mr-3 animate-spin" />
                                     Procesando...
                                   </>
                                 ) : (
-                                  "ACEPTAR RETO Y PAGAR"
+                                  <>
+                                    <Play className="w-6 h-6 mr-3 fill-current" />
+                                    ACEPTAR Y APOSTAR ${challenge.betAmount}
+                                  </>
                                 )}
                               </Button>
                           </div>
                       )
                   ) : challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
-                      <div className="space-y-6">
-                          <div className="aspect-square w-full bg-black/50 rounded-lg overflow-hidden border border-white/10">
+                      <div className="space-y-6 animate-in zoom-in-95 duration-500">
+                          <div className="aspect-[4/3] w-full bg-black/50 rounded-xl overflow-hidden border border-white/10 shadow-lg">
                             <iframe
                               src={`https://lichess.org/${challenge.lichess_game_id}`}
                               className="w-full h-full"
@@ -281,7 +293,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                                <Button
                                   onClick={handleVerify}
                                   disabled={verifying}
-                                  className={`w-full font-bold h-12 text-lg transition-all duration-300 ${
+                                  className={`w-full font-bold h-14 text-xl rounded-xl transition-all duration-300 ${
                                       verifying
                                       ? 'bg-white/10 text-gray-500 cursor-not-allowed'
                                       : 'bg-neon-magenta hover:bg-neon-magenta/80 text-white shadow-[0_0_20px_rgba(217,70,239,0.3)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)]'
@@ -289,11 +301,11 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                                   >
                                   {verifying ? (
                                       <>
-                                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                      Verificando...
+                                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                                      Verificando Resultado...
                                       </>
                                   ) : (
-                                      "VERIFICAR PARTIDA"
+                                      "VERIFICAR RESULTADO"
                                   )}
                                 </Button>
 
@@ -302,18 +314,17 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                                       <motion.div
                                           initial={{ opacity: 0, scale: 0.9 }}
                                           animate={{ opacity: 1, scale: 1 }}
-                                          className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center space-y-2"
+                                          className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-center space-y-4"
                                       >
-                                          <div className="flex items-center justify-center gap-2 text-green-400">
-                                            <CheckCircle className="w-6 h-6" />
-                                            <h3 className="text-lg font-bold">¡Verificado!</h3>
+                                          <div className="flex flex-col items-center justify-center gap-2 text-green-400">
+                                            <CheckCircle className="w-12 h-12" />
+                                            <h3 className="text-2xl font-bold">¡Partida Verificada!</h3>
                                           </div>
-                                          <p className="text-gray-300 text-sm">Fondos transferidos al ganador.</p>
+                                          <p className="text-gray-300">Los fondos han sido transferidos al ganador.</p>
                                           <Button
                                             onClick={() => router.push('/dashboard')}
                                             variant="outline"
-                                            size="sm"
-                                            className="mt-2 border-green-500/30 text-green-400 hover:bg-green-500/10"
+                                            className="mt-2 border-green-500/30 text-green-400 hover:bg-green-500/10 w-full"
                                           >
                                             Volver al Inicio
                                           </Button>
@@ -322,30 +333,50 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                                       <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${
+                                        className={`p-4 rounded-lg border text-sm flex items-start gap-3 ${
                                           verifyStatus === 'ERROR'
                                           ? 'bg-red-500/10 border-red-500/20 text-red-400'
                                           : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
                                       }`}>
-                                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                          <span>{verifyMessage}</span>
+                                          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                                          <span className="font-medium text-base">{verifyMessage}</span>
                                       </motion.div>
                                   )}
                                 </AnimatePresence>
                           </div>
                       </div>
                   ) : challenge.status === 'COMPLETED' ? (
-                      <div className="text-center py-10 space-y-4">
-                          <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
-                          <h3 className="text-2xl font-bold text-white">Partida Finalizada</h3>
-                          <p className="text-gray-400">Esta partida ya ha concluido.</p>
-                          <Button onClick={() => router.push("/dashboard")} variant="outline" className="border-white/10 text-white hover:bg-white/10">
+                      <div className="text-center py-12 space-y-6">
+                          <div className="relative inline-block">
+                              <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl"></div>
+                              <CheckCircle className="w-20 h-20 text-green-500 relative z-10" />
+                          </div>
+                          <div className="space-y-2">
+                              <h3 className="text-3xl font-bold text-white">Partida Finalizada</h3>
+                              <p className="text-gray-400 text-lg">Esta partida ya ha concluido y los premios han sido entregados.</p>
+                          </div>
+
+                          {challenge.winnerId ? (
+                             <div className="p-4 bg-white/5 rounded-lg border border-white/10 max-w-sm mx-auto">
+                                <p className="text-gray-300">Ganador</p>
+                                <p className="text-neon-cyan font-bold text-xl">
+                                    {challenge.winnerId === currentUserId ? "¡TÚ!" : "Oponente"}
+                                </p>
+                             </div>
+                          ) : (
+                             <div className="p-4 bg-white/5 rounded-lg border border-white/10 max-w-sm mx-auto">
+                                <p className="text-gray-300">Resultado</p>
+                                <p className="text-yellow-400 font-bold text-xl">Empate</p>
+                             </div>
+                          )}
+
+                          <Button onClick={() => router.push("/dashboard")} variant="outline" className="border-white/10 text-white hover:bg-white/10 px-8 py-6 text-lg h-auto">
                               Volver al Dashboard
                           </Button>
                       </div>
                   ) : (
                     <div className="text-center py-10 text-gray-400">
-                      <p>Estado desconocido o enlace de partida no disponible.</p>
+                      <p>Cargando estado de la partida...</p>
                     </div>
                   )}
               </CardContent>

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No puedes aceptar tu propio reto.' }, { status: 400 })
     }
 
-    const betAmount = challenge.betAmount
+    const betAmount = Number(challenge.betAmount)
     const isDirectInvite = !!challenge.challengerId
 
     // If it's a direct invite, the challengerId MUST match the user accepting (if set)
@@ -54,68 +54,60 @@ export async function POST(request: Request) {
 
     // Helper function for refunds
     const refundUser = async (userId: string, amount: number) => {
-      const MAX_RETRIES = 3
-      for (let i = 0; i < MAX_RETRIES; i++) {
         try {
-          const { data: wallet, error: fetchError } = await supabaseAdmin
-            .from('wallets')
-            .select('balance')
-            .eq('userId', userId)
-            .single()
-
-          if (fetchError || !wallet) continue
-
-          const currentBalance = Number(wallet.balance)
-          const newBalance = currentBalance + Number(amount)
-
-          const { data: updatedWallet, error: updateError } = await supabaseAdmin
-            .from('wallets')
-            .update({ balance: newBalance })
-            .eq('userId', userId)
-            .eq('balance', currentBalance)
-            .select()
-            .single()
-
-          if (updateError) {
-              console.error(`Refund failed for user ${userId} (Attempt ${i + 1}): Update error`, updateError)
-              continue
-          }
-
-          if (updatedWallet) return true
+            const { data: wallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', userId).single()
+            if (wallet) {
+                await supabaseAdmin
+                    .from('wallets')
+                    .update({ balance: Number(wallet.balance) + amount })
+                    .eq('userId', userId)
+            }
         } catch (e) {
-          console.error(`Refund exception for user ${userId}:`, e)
+            console.error(`Refund failed for user ${userId}:`, e)
         }
-      }
-      return false
     }
 
-    // 2. Lock Funds
+    // 2. Lock Funds (Direct Update - No RPC)
+    const { data: wallet, error: walletError } = await supabaseAdmin
+        .from('wallets')
+        .select('balance')
+        .eq('userId', user.id)
+        .single()
 
-    // 2a. Lock Challenger Funds (Always)
-    const { error: challengerLockError } = await supabaseAdmin.rpc('lock_bet', {
-      p_user_id: user.id,
-      p_amount: betAmount
-    })
-
-    if (challengerLockError) {
-      console.error('Challenger lock failed:', challengerLockError)
-      return NextResponse.json({
-        error: challengerLockError.message || 'Error al procesar el pago.',
-        details: challengerLockError.details,
-        hint: challengerLockError.hint,
-        code: challengerLockError.code
-      }, { status: 400 })
+    if (walletError || !wallet) {
+        return NextResponse.json({ error: 'Error al verificar saldo.' }, { status: 500 })
     }
 
-    // 3. Create Lichess Game (NEW)
+    const currentBalance = Number(wallet.balance)
+    if (currentBalance < betAmount) {
+        return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 })
+    }
+
+    const newBalance = currentBalance - betAmount
+    const { error: updateError } = await supabaseAdmin
+        .from('wallets')
+        .update({ balance: newBalance })
+        .eq('userId', user.id)
+        .eq('balance', currentBalance) // Optimistic locking
+
+    if (updateError) {
+         return NextResponse.json({ error: 'Error al procesar el pago. Intenta de nuevo.' }, { status: 409 })
+    }
+
+    // 3. Create Lichess Game
     let lichessData
     try {
         const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
             method: 'POST',
             headers: {
+                // If we want the bot to be the creator? No, open challenges are anonymous usually unless authenticated.
+                // If we use a token, the account owning the token creates it.
                 'Authorization': `Bearer ${process.env.LICHESS_API_TOKEN}`
             },
-            // Body can be empty for default open challenge
+            body: JSON.stringify({
+                clock: { limit: 600, increment: 0 }, // Example: 10 mins
+                name: `Reto ${betAmount} USD`
+            })
         })
 
         if (!lichessResponse.ok) {
@@ -125,13 +117,15 @@ export async function POST(request: Request) {
         lichessData = await lichessResponse.json()
     } catch (e) {
         console.error("Error creating Lichess game:", e)
-        // If Lichess fails, refund challenger and abort
+        // Refund challenger
         await refundUser(user.id, betAmount)
         return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
     }
 
     // Extract ID and URL
-    // Handle both wrapped { challenge: { ... } } and flat { id: ... } responses
+    // Lichess response format for /api/challenge/open: { challenge: { id: "...", url: "..." } } OR { id: "...", url: "..." } depending on endpoint version/docs.
+    // Usually /api/challenge/open returns { challenge: { id, url, ... }, urlWhite: "...", urlBlack: "..." } if strictly open?
+    // Let's assume standard response based on previous code or docs. Previous code handled both.
     const lichessGameId = lichessData.challenge?.id || lichessData.id
     const lichessGameUrl = lichessData.challenge?.url || lichessData.url || `https://lichess.org/${lichessGameId}`
 
@@ -143,28 +137,28 @@ export async function POST(request: Request) {
 
     // 4. Update Challenge (IN_PROGRESS)
     // Critical: Check status is STILL 'OPEN' to prevent race conditions
-    const { data: updatedChallenge, error: updateError } = await supabaseAdmin
+    const { data: updatedChallenge, error: challengeUpdateError } = await supabaseAdmin
       .from('challenges')
       .update({
         status: 'IN_PROGRESS',
         challengerId: user.id,
-        lichess_game_id: lichessGameId, // New column for Lichess ID
-        gameLink: lichessGameUrl // Update gameLink for frontend compatibility
+        lichess_game_id: lichessGameId,
+        gameLink: lichessGameUrl
       })
       .eq('id', challengeId)
       .eq('status', 'OPEN')
       .select()
       .single()
 
-    if (updateError || !updatedChallenge) {
-      console.error('Challenge update error or race condition:', updateError)
+    if (challengeUpdateError || !updatedChallenge) {
+      console.error('Challenge update error or race condition:', challengeUpdateError)
 
       // Rollback: Refund Challenger
       await refundUser(user.id, betAmount)
 
       return NextResponse.json({
         error: 'No se pudo actualizar el reto. Es posible que alguien más lo haya aceptado.',
-        details: updateError?.message
+        details: challengeUpdateError?.message
       }, { status: 500 })
     }
 

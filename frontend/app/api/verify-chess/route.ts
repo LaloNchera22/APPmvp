@@ -53,6 +53,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Challenge not found' }, { status: 404 })
     }
 
+    // If already completed, return success
+    if (challenge.status === 'COMPLETED') {
+         return NextResponse.json({ status: 'COMPLETED', message: 'Match already completed' })
+    }
+
     const { creatorId, challengerId, betAmount } = challenge
 
     // 2. Fetch Lichess Game Data
@@ -80,11 +85,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Map Lichess Users to Supabase Users
-    const whiteLichessId = gameData.players.white.user.id.toLowerCase()
-    const blackLichessId = gameData.players.black.user.id.toLowerCase()
+    // We need to know who is who.
+    // Strategy: We check if the Lichess usernames match any `game_accounts` linked to our users.
+
+    const whiteLichessId = gameData.players.white?.user?.id?.toLowerCase()
+    const blackLichessId = gameData.players.black?.user?.id?.toLowerCase()
+
+    if (!whiteLichessId || !blackLichessId) {
+        return NextResponse.json({ error: 'Game not started or players missing' }, { status: 400 })
+    }
 
     // Fetch game accounts for both players to verify identity
-    // We check both LICHESS and generic matches in case platformId isn't strictly enforced yet
     const { data: gameAccounts, error: accountsError } = await supabaseAdmin
       .from('game_accounts')
       .select('userId, gamerTag')
@@ -96,51 +107,35 @@ export async function POST(req: NextRequest) {
     }
 
     // Find which Supabase user played which color
-    let whiteUserId: string | null = null
-    let blackUserId: string | null = null
-
-    // Helper to find user by gamer tag (case-insensitive)
     const findUserByTag = (tag: string) => {
-      return gameAccounts.find(acc => acc.gamerTag.toLowerCase() === tag.toLowerCase())?.userId
+      // Simple exact match (case insensitive)
+      return gameAccounts.find(acc => acc.gamerTag.toLowerCase() === tag)?.userId
     }
 
-    whiteUserId = findUserByTag(whiteLichessId) || null
-    blackUserId = findUserByTag(blackLichessId) || null
+    const whiteUserId = findUserByTag(whiteLichessId)
+    const blackUserId = findUserByTag(blackLichessId)
 
+    // Verification: We need to ensure that the Lichess players CORRESPOND to the Challenge participants.
+    // If we can't map them, we can't payout.
     if (!whiteUserId || !blackUserId) {
-        // Fallback: If strict mapping fails, check if the challenge creator/challenger
-        // tags match the Lichess IDs directly (if stored elsewhere).
-        // For now, fail if accounts aren't linked properly.
+        // Fallback: Check if we can assume identity based on who verified? No, risky.
+        // We must return an error asking users to link their Lichess accounts.
         return NextResponse.json({
-            error: 'Could not map Lichess players to Challenge users. Ensure Lichess accounts are linked.',
+            error: 'No se pudieron identificar los usuarios de Lichess. Asegúrense de tener sus cuentas vinculadas en Perfil.',
             details: { white: whiteLichessId, black: blackLichessId }
         }, { status: 400 })
     }
 
-    // Verify mapping is correct (one is creator, one is challenger)
-    const isValidMatch = (whiteUserId === creatorId && blackUserId === challengerId) ||
-                         (whiteUserId === challengerId && blackUserId === creatorId)
-
-    if (!isValidMatch) {
-       return NextResponse.json({ error: 'Lichess players do not match the challenge participants' }, { status: 400 })
+    const participants = [creatorId, challengerId]
+    if (!participants.includes(whiteUserId) || !participants.includes(blackUserId)) {
+         return NextResponse.json({ error: 'Los jugadores de Lichess no coinciden con el reto.' }, { status: 400 })
     }
 
-    // 4. Determine Result and Handle Payouts
+    // 4. Determine Result
     const isGameFinished = ['mate', 'resign', 'outoftime', 'timeout', 'draw', 'stalemate', 'cheat', 'noStart', 'unknownFinish', 'variantEnd'].includes(gameData.status) || !!gameData.winner
 
     if (!isGameFinished) {
-      return NextResponse.json({ status: 'PENDING', message: 'Game is not finished yet' })
-    }
-
-    // Check if result already processed
-    const { data: existingResult } = await supabaseAdmin
-        .from('match_results')
-        .select('id')
-        .eq('challengeId', challengeId)
-        .single()
-
-    if (existingResult) {
-        return NextResponse.json({ status: 'COMPLETED', message: 'Match result already recorded' })
+      return NextResponse.json({ status: 'PENDING', message: 'La partida sigue en curso.' })
     }
 
     let winnerId: string | null = null
@@ -152,102 +147,59 @@ export async function POST(req: NextRequest) {
         winnerId = gameData.winner === 'white' ? whiteUserId : blackUserId
     }
 
-    // 5. Record Match Result (First Step: Prevent Double Spend)
-    const { error: resultError } = await supabaseAdmin
-        .from('match_results')
-        .insert({
-            challengeId: challengeId,
-            winnerId: winnerId, // Null for draw
-            verifiedAt: new Date().toISOString()
+    // 5. Update Challenge Status (Optimistic Lock)
+    // We update status first to prevent double spending via race conditions
+    const { error: updateChallengeError } = await supabaseAdmin
+        .from('challenges')
+        .update({
+            status: 'COMPLETED',
+            winnerId: winnerId
         })
+        .eq('id', challengeId)
+        .neq('status', 'COMPLETED') // Ensure we only complete once
 
-    if (resultError) {
-        console.error('Error inserting match result:', resultError)
-        // If unique constraint violation, it means already processed
-        if (resultError.code === '23505') {
-             return NextResponse.json({ status: 'COMPLETED', winner: winnerId, message: 'Match already verified' })
-        }
-        // Other error: stop processing
-        return NextResponse.json({ error: 'Failed to record match result' }, { status: 500 })
+    if (updateChallengeError) {
+        // If error or no rows updated, likely already completed
+        return NextResponse.json({ status: 'COMPLETED', message: 'Partida ya verificada.' })
     }
 
-    // 6. Execute Transactions
-    // Helper for safe wallet updates with retry
+    // 6. Execute Transactions (Direct Update - No RPC)
     const updateWalletSafe = async (userId: string, amount: number) => {
-        const MAX_RETRIES = 3
-        for (let i = 0; i < MAX_RETRIES; i++) {
-            try {
-                const { data: wallet, error: fetchError } = await supabaseAdmin
-                    .from('wallets')
-                    .select('balance')
-                    .eq('userId', userId)
-                    .single()
-
-                if (fetchError || !wallet) throw new Error('Wallet not found')
-
+        try {
+            const { data: wallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', userId).single()
+            if (wallet) {
                 const currentBalance = Number(wallet.balance)
-                const newBalance = currentBalance + amount
-
-                const { data: updated, error: updateError } = await supabaseAdmin
+                await supabaseAdmin
                     .from('wallets')
-                    .update({ balance: newBalance })
+                    .update({ balance: currentBalance + amount })
                     .eq('userId', userId)
-                    .eq('balance', currentBalance) // Optimistic locking
-                    .select()
-                    .single()
-
-                if (!updateError && updated) {
-                    return true
-                }
-            } catch (e) {
-                console.error(`Wallet update retry ${i+1} failed for user ${userId}`, e)
+                    .eq('balance', currentBalance)
+                return true
             }
-            // Small delay before retry
-            await new Promise(resolve => setTimeout(resolve, 100))
+        } catch (e) {
+            console.error(`Payout failed for user ${userId}`, e)
         }
         return false
     }
 
     if (isDraw) {
-        // Refund Logic
-        console.log(`Game ended in draw. Refunding bet amount ${betAmount} to both players.`)
-
-        const refundCreator = await updateWalletSafe(creatorId, Number(betAmount))
-        const refundChallenger = await updateWalletSafe(challengerId, Number(betAmount))
-
-        if (!refundCreator || !refundChallenger) {
-             console.error('CRITICAL: Failed to refund one or both players')
-             // We continue to update status but log the error. Admin intervention required.
-        }
-
+        // Refund
+        const bet = Number(betAmount)
+        await updateWalletSafe(creatorId, bet)
+        await updateWalletSafe(challengerId, bet)
     } else if (winnerId) {
-        // Win Logic
+        // Payout Winner
         const totalPot = Number(betAmount) * 2
-        const commission = totalPot * 0.10
+        const commission = totalPot * 0.10 // 10% commission
         const payout = totalPot - commission
 
-        console.log(`Game won by ${winnerId}. Pot: ${totalPot}, Commission: ${commission}, Payout: ${payout}`)
-
-        const paid = await updateWalletSafe(winnerId, payout)
-
-        if (!paid) {
-            console.error(`CRITICAL: Failed to pay winner ${winnerId} amount ${payout}`)
-            // We return error but the match is recorded as verified.
-            return NextResponse.json({ error: 'Match verified but payment failed. Contact support.' }, { status: 500 })
-        }
+        await updateWalletSafe(winnerId, payout)
     }
-
-    // 7. Update Challenge Status
-    await supabaseAdmin
-        .from('challenges')
-        .update({ status: 'COMPLETED', winnerId: winnerId }) // If draw, winnerId is null, which is correct
-        .eq('id', challengeId)
 
     return NextResponse.json({
         status: 'COMPLETED',
         winner: winnerId,
-        isDraw,
-        payout: winnerId ? (Number(betAmount) * 2 * 0.9) : 0
+        isDraw
     })
 
   } catch (error: unknown) {

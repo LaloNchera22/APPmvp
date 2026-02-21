@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, User, Wallet, Swords, LogOut } from "lucide-react"
+import { Home, Wallet, Swords, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
@@ -15,29 +15,14 @@ const sidebarItems = [
     icon: Home,
   },
   {
-    title: "Perfil",
-    href: "/dashboard/profile",
-    icon: User,
-  },
-  // {
-  //   title: "Juegos",
-  //   href: "/dashboard/games",
-  //   icon: Gamepad2,
-  // },
-  {
-    title: "Cartera",
-    href: "/dashboard/wallet",
-    icon: Wallet,
-  },
-  {
     title: "Jugar Ajedrez",
     href: "/dashboard/matchmaking",
     icon: Swords,
   },
   {
-    title: "Emparejamientos",
-    href: "/dashboard/matchups",
-    icon: Swords,
+    title: "Mi Billetera",
+    href: "/dashboard/wallet",
+    icon: Wallet,
   },
 ]
 
