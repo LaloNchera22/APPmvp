@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --background: #050505;
-    --foreground: #ededed;
+    --background: #eaddcf;
+    --foreground: #111111;
   }
 }
 
@@ -13,22 +13,15 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: none;
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  .yeezy-card {
+    @apply bg-yeezy-light border-4 border-foreground rounded-none shadow-[8px_8px_0px_0px_rgba(17,17,17,1)];
   }
 
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg rounded-xl;
-  }
-
-  .neon-text-cyan {
-    @apply text-neon-cyan drop-shadow-[0_0_10px_rgba(6,182,212,0.5)];
-  }
-
-  .neon-text-magenta {
-    @apply text-neon-magenta drop-shadow-[0_0_10px_rgba(217,70,239,0.5)];
+  .yeezy-button {
+    @apply font-pixel uppercase bg-yeezy-dark text-yeezy-light border-4 border-foreground rounded-none shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] hover:shadow-[0px_0px_0px_0px_rgba(17,17,17,1)] hover:translate-x-[4px] hover:translate-y-[4px] transition-all;
   }
 }

@@ -40,33 +40,25 @@ export default function BetCard({
 
   return (
     <div className={cn(
-      "glass-card p-6 flex flex-col justify-between h-full border-l-4 transition-all duration-300 group relative overflow-hidden",
-      disabled ? "border-l-gray-500 opacity-60" : "border-l-neon-magenta"
+      "yeezy-card p-6 flex flex-col justify-between h-full transition-all duration-300 group relative overflow-hidden",
+      disabled ? "opacity-60 grayscale" : "hover:-translate-y-1"
     )}>
-      {/* Background glow effect on hover */}
-      {!disabled && (
-        <div className="absolute inset-0 bg-gradient-to-r from-neon-magenta/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-      )}
-
       <div>
-        <div className="flex justify-between items-start mb-4 relative z-10">
+        <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
-            <h3 className="text-lg font-bold text-white tracking-wide">{displayTitle}</h3>
-            <p className="text-sm text-gray-400 mt-1">{displayCondition}</p>
+            <h3 className="text-xl font-black text-foreground uppercase tracking-tighter">{displayTitle}</h3>
+            <p className="text-sm text-foreground/80 font-bold uppercase mt-1">{displayCondition}</p>
           </div>
-          <div className={cn(
-            "p-2 rounded-lg transition-colors",
-            disabled ? "bg-white/5 text-gray-500" : "bg-white/5 text-neon-magenta"
-          )}>
-            <Swords className="w-5 h-5" />
+          <div className="p-3 bg-foreground text-background shadow-[4px_4px_0px_0px_rgba(17,17,17,1)]">
+            <Swords className="w-6 h-6" />
           </div>
         </div>
       </div>
 
-      <div className="relative z-10 mt-4">
-        <div className="flex justify-between items-end mb-4">
-          <span className="text-xs text-gray-500 uppercase tracking-wider font-medium">Apuesta</span>
-          <span className="font-mono text-2xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
+      <div className="relative z-10 mt-6 border-t-4 border-foreground pt-6">
+        <div className="flex justify-between items-end mb-6">
+          <span className="text-xs text-foreground/60 uppercase font-bold tracking-wider">Apuesta</span>
+          <span className="font-pixel text-2xl font-bold text-foreground">
             {formattedAmount}
           </span>
         </div>
@@ -75,10 +67,10 @@ export default function BetCard({
           onClick={disabled ? undefined : onAccept}
           disabled={disabled}
           className={cn(
-            "w-full py-2.5 px-4 text-sm font-medium rounded-lg border transition-all duration-300 flex items-center justify-center gap-2",
+            "w-full py-4 px-6 text-sm flex items-center justify-center gap-2",
             disabled
-              ? "bg-white/5 text-gray-400 border-white/5 cursor-not-allowed"
-              : "bg-white/10 hover:bg-neon-magenta/20 text-white border-white/10 hover:border-neon-magenta/50 group-hover:shadow-[0_0_15px_rgba(217,70,239,0.2)]"
+              ? "bg-foreground/20 text-foreground/50 border-4 border-foreground/20 cursor-not-allowed font-bold uppercase"
+              : "yeezy-button"
           )}
         >
           <span>{actionLabel}</span>

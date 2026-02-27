@@ -70,18 +70,14 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-[#050505]/80 border-white/10 backdrop-blur-md shadow-xl overflow-hidden relative">
-       {/* Ambient Glow */}
-       <div className="absolute -top-20 -right-20 w-60 h-60 bg-neon-magenta/10 blur-[80px] rounded-full pointer-events-none" />
-       <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-neon-cyan/10 blur-[80px] rounded-full pointer-events-none" />
-
-       <CardHeader className="text-center pb-2 relative z-10">
-         <CardTitle className="text-xl font-bold text-white flex items-center justify-center gap-2">
+    <Card className="w-full max-w-md mx-auto yeezy-card relative">
+       <CardHeader className="text-center pb-2 relative z-10 border-b-4 border-foreground">
+         <CardTitle className="text-xl font-black text-foreground uppercase flex items-center justify-center gap-2">
            Estado de la Partida
          </CardTitle>
        </CardHeader>
 
-       <CardContent className="space-y-6 relative z-10">
+       <CardContent className="space-y-6 relative z-10 pt-6">
          <div className="flex flex-col items-center gap-4">
            <a
              href="https://www.chess.com"
@@ -91,9 +87,9 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
            >
              <Button
                 variant="outline"
-                className="w-full border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10 hover:text-neon-cyan hover:border-neon-cyan/60 transition-all duration-300"
+                className="w-full py-6 text-base"
              >
-               <ExternalLink className="w-4 h-4 mr-2" />
+               <ExternalLink className="w-5 h-5 mr-2" />
                Ir a Chess.com
              </Button>
            </a>
@@ -104,26 +100,26 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
                  initial={{ opacity: 0, scale: 0.9 }}
                  animate={{ opacity: 1, scale: 1 }}
                  exit={{ opacity: 0, scale: 0.9 }}
-                 className="flex flex-col items-center text-center space-y-2 p-4 bg-green-500/10 border border-green-500/20 rounded-xl w-full"
+                 className="flex flex-col items-center text-center space-y-4 p-6 bg-green-200 border-4 border-green-700 w-full shadow-[4px_4px_0px_0px_rgba(21,128,61,1)]"
                >
                  <motion.div
                    initial={{ scale: 0 }}
                    animate={{ scale: 1 }}
                    transition={{ type: "spring", stiffness: 200, damping: 10 }}
                  >
-                   <CheckCircle className="w-12 h-12 text-green-500 mb-2" />
+                   <CheckCircle className="w-12 h-12 text-green-800" />
                  </motion.div>
-                 <h3 className="text-lg font-bold text-green-400">¡Partida Finalizada!</h3>
-                 <p className="text-sm text-gray-300">El resultado ha sido verificado.</p>
+                 <h3 className="text-xl font-black text-green-800 uppercase">¡Partida Finalizada!</h3>
+                 <p className="text-sm font-bold text-green-700/80 uppercase">El resultado ha sido verificado.</p>
                  {newBalance && (
                    <motion.div
                      initial={{ opacity: 0, y: 10 }}
                      animate={{ opacity: 1, y: 0 }}
                      transition={{ delay: 0.3 }}
-                     className="mt-2 px-4 py-2 bg-black/40 rounded-lg border border-white/5"
+                     className="mt-4 px-6 py-4 bg-background border-4 border-green-800 text-foreground w-full"
                    >
-                     <p className="text-xs text-gray-400 uppercase tracking-wider">Nuevo Balance</p>
-                     <p className="text-xl font-mono font-bold text-white">${newBalance}</p>
+                     <p className="text-xs text-foreground/60 font-bold uppercase tracking-wider mb-1">Nuevo Balance</p>
+                     <p className="text-2xl font-pixel font-bold">${newBalance}</p>
                    </motion.div>
                  )}
                </motion.div>
@@ -132,20 +128,20 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
                  <Button
                    onClick={handleVerify}
                    disabled={loading}
-                   className={`w-full font-bold transition-all duration-300 ${
+                   className={`w-full py-6 text-base ${
                      loading
-                       ? 'bg-white/10 text-gray-400 cursor-not-allowed'
-                       : 'bg-neon-magenta hover:bg-neon-magenta/80 text-white shadow-[0_0_20px_rgba(217,70,239,0.3)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)]'
+                       ? 'bg-foreground/20 text-foreground/50 border-4 border-foreground/20 cursor-not-allowed'
+                       : 'yeezy-button'
                    }`}
                  >
                    {loading ? (
                      <>
-                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                        Verificando...
                      </>
                    ) : (
                      <>
-                       <CheckCircle className="w-4 h-4 mr-2" />
+                       <CheckCircle className="w-5 h-5 mr-2" />
                        ¡Ya terminé mi partida!
                      </>
                    )}
@@ -158,13 +154,13 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
                        initial={{ opacity: 0, y: -10 }}
                        animate={{ opacity: 1, y: 0 }}
                        exit={{ opacity: 0, y: -10 }}
-                       className={`p-3 rounded-lg border text-sm flex items-start gap-2 ${
+                       className={`p-4 border-4 text-sm font-bold uppercase flex items-start gap-3 ${
                          status === 'ERROR'
-                           ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                           : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                           ? 'bg-red-100 border-red-600 text-red-700'
+                           : 'bg-yellow-100 border-yellow-500 text-yellow-800'
                        }`}
                      >
-                       <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                       <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                        <span>{message}</span>
                      </motion.div>
                    )}
