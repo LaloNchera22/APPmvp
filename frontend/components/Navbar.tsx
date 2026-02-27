@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy } from "lucide-react"
+import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy, LayoutDashboard } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { User } from "@supabase/supabase-js"
 
@@ -97,6 +97,13 @@ export default function Navbar() {
           <div className="hidden md:flex md:items-center md:gap-6">
             {user ? (
               <>
+                <Link href="/dashboard">
+                  <Button variant="ghost" className="text-gray-300 hover:text-white hover:bg-white/5 gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Button>
+                </Link>
+
                 <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-md">
                   <Wallet className="h-4 w-4 text-neon-cyan" />
                   <span className="font-mono text-sm font-bold text-white">${balance}</span>
@@ -207,6 +214,11 @@ export default function Navbar() {
                      <Button variant="ghost" className="w-full justify-start text-gray-300">
                         <Trophy className="mr-2 h-4 w-4" /> Mis Retos
                      </Button>
+                     <Link href="/dashboard" onClick={() => setIsOpen(false)}>
+                       <Button variant="ghost" className="w-full justify-start text-gray-300">
+                          <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                       </Button>
+                     </Link>
                      <Button
                         variant="ghost"
                         onClick={handleSignOut}
