@@ -54,16 +54,30 @@ export async function POST(request: Request) {
 
     // Helper function for refunds
     const refundUser = async (userId: string, amount: number) => {
-        try {
-            const { data: wallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', userId).single()
-            if (wallet) {
-                await supabaseAdmin
-                    .from('wallets')
-                    .update({ balance: Number(wallet.balance) + amount })
-                    .eq('userId', userId)
+        let refundSuccess = false
+        let attempts = 0
+        while (!refundSuccess && attempts < 3) {
+            attempts++
+            try {
+                const { data: wallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', userId).single()
+                if (wallet) {
+                    const { data: updateData, error: refundError } = await supabaseAdmin
+                        .from('wallets')
+                        .update({ balance: Number(wallet.balance) + amount })
+                        .eq('userId', userId)
+                        .eq('balance', wallet.balance) // Optimistic locking
+                        .select()
+
+                    if (!refundError && updateData && updateData.length > 0) {
+                        refundSuccess = true
+                    }
+                }
+            } catch (e) {
+                console.error(`Attempt ${attempts} to refund failed for user ${userId}:`, e)
             }
-        } catch (e) {
-            console.error(`Refund failed for user ${userId}:`, e)
+        }
+        if (!refundSuccess) {
+            console.error(`CRITICAL: Failed to refund ${amount} to user ${userId} after 3 attempts.`)
         }
     }
 
