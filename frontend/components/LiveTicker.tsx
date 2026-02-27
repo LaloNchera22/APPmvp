@@ -14,32 +14,32 @@ const MOCK_BETS = [
 
 export default function LiveTicker() {
   return (
-    <div className="w-full bg-[#0a0a0a]/50 border-y border-white/5 overflow-hidden py-3 backdrop-blur-sm">
+    <div className="w-full bg-foreground border-y-4 border-foreground overflow-hidden py-4 text-background">
       <div className="flex w-full whitespace-nowrap overflow-hidden relative">
         <motion.div
-          className="flex gap-12 items-center pl-12"
+          className="flex gap-16 items-center pl-16"
           animate={{ x: ["0%", "-50%"] }}
           transition={{ duration: 30, ease: "linear", repeat: Infinity }}
         >
           {[...MOCK_BETS, ...MOCK_BETS, ...MOCK_BETS, ...MOCK_BETS].map((bet, idx) => (
-            <div key={`${bet.id}-${idx}`} className="flex items-center gap-3 text-sm text-gray-400">
-              <span className="text-neon-cyan/80 font-mono font-bold text-base">${bet.amount}</span>
-              <span className="text-gray-500 text-xs uppercase tracking-wider">WIN</span>
-              <span className="font-bold text-gray-300 flex items-center gap-2">
-                 {bet.game === "LoL" && <Swords className="w-4 h-4 text-gray-500" />}
-                 {bet.game === "Warzone" && <Crosshair className="w-4 h-4 text-gray-500" />}
-                 {bet.game === "FIFA" && <Gamepad2 className="w-4 h-4 text-gray-500" />}
+            <div key={`${bet.id}-${idx}`} className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider">
+              <span className="font-pixel text-base">${bet.amount}</span>
+              <span className="text-background/50">WIN</span>
+              <span className="flex items-center gap-2">
+                 {bet.game === "LoL" && <Swords className="w-5 h-5" />}
+                 {bet.game === "Warzone" && <Crosshair className="w-5 h-5" />}
+                 {bet.game === "FIFA" && <Gamepad2 className="w-5 h-5" />}
                  {bet.game}
               </span>
-              <span className="text-gray-600">|</span>
-              <span className="text-xs text-gray-500 font-medium">@{bet.user}</span>
+              <span className="text-background/20">|</span>
+              <span className="text-background/80">@{bet.user}</span>
             </div>
           ))}
         </motion.div>
 
         {/* Gradient fades for edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#050505] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#050505] to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-foreground to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-foreground to-transparent z-10 pointer-events-none" />
       </div>
     </div>
   )

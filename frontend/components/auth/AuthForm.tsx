@@ -85,10 +85,10 @@ export function AuthForm({ type }: AuthFormProps) {
   }
 
   return (
-    <Card className="w-[350px] border-white/10 bg-black/40 backdrop-blur-xl">
+    <Card className="w-[350px] yeezy-card">
       <CardHeader>
-        <CardTitle className="text-white">{type === "login" ? "Ingresar" : "Crear Cuenta"}</CardTitle>
-        <CardDescription className="text-gray-400">
+        <CardTitle className="text-foreground">{type === "login" ? "Ingresar" : "Crear Cuenta"}</CardTitle>
+        <CardDescription className="text-foreground/80">
           {type === "login"
             ? "Ingresa tu email y contraseña para continuar."
             : "Regístrate para empezar a ganar dinero."}
@@ -124,7 +124,7 @@ export function AuthForm({ type }: AuthFormProps) {
                <p className="text-xs text-red-500">{form.formState.errors.password.message}</p>
             )}
           </div>
-          <Button disabled={isLoading} variant="neon" className="w-full">
+          <Button disabled={isLoading} className="w-full yeezy-button">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {type === "login" ? "Ingresar" : "Registrarse"}
           </Button>
@@ -132,33 +132,33 @@ export function AuthForm({ type }: AuthFormProps) {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-white/10" />
+            <span className="w-full border-t border-foreground" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[#0a0a0a] px-2 text-gray-500">O continúa con</span>
+            <span className="bg-yeezy-light px-2 text-foreground">O continúa con</span>
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
            <GoogleButton />
-           <Button variant="outline" onClick={() => handleSocialLogin('discord')} className="w-full text-white hover:bg-white/10 border-white/10">
+           <Button variant="outline" onClick={() => handleSocialLogin('discord')} className="w-full bg-background text-foreground border-2 border-foreground rounded-none shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] hover:shadow-[0px_0px_0px_0px_rgba(17,17,17,1)] hover:translate-x-[4px] hover:translate-y-[4px] transition-all">
               <span className="font-bold text-[#5865F2]">Continuar con Discord</span>
            </Button>
         </div>
       </CardContent>
       <CardFooter className="flex justify-center">
-        <div className="text-sm text-muted-foreground text-gray-400">
+        <div className="text-sm text-foreground">
             {type === "login" ? (
             <>
                 ¿No tienes cuenta?{" "}
-                <Link href="/register" className="underline underline-offset-4 hover:text-white text-neon-cyan transition-colors">
+                <Link href="/register" className="font-bold hover:underline transition-colors">
                 Regístrate
                 </Link>
             </>
             ) : (
             <>
                 ¿Ya tienes cuenta?{" "}
-                <Link href="/login" className="underline underline-offset-4 hover:text-white text-neon-cyan transition-colors">
+                <Link href="/login" className="font-bold hover:underline transition-colors">
                 Ingresa
                 </Link>
             </>

@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,60 +89,61 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#050505]/60 backdrop-blur-xl supports-[backdrop-filter]:bg-[#050505]/40">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b-4 border-foreground bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-end">
+        <div className="flex h-16 items-center justify-between">
+          <Link href="/" className="font-pixel font-bold text-xl tracking-tighter text-foreground uppercase">
+             P2P PLATFORM
+          </Link>
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:gap-6">
             {user ? (
               <>
                 <Link href="/dashboard">
-                  <Button variant="ghost" className="text-gray-300 hover:text-white hover:bg-white/5 gap-2">
+                  <Button variant="ghost" className="text-foreground hover:bg-foreground hover:text-background rounded-none gap-2 font-bold uppercase transition-colors">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Button>
                 </Link>
 
-                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-md">
-                  <Wallet className="h-4 w-4 text-neon-cyan" />
-                  <span className="font-mono text-sm font-bold text-white">${balance}</span>
+                <div className="flex items-center gap-2 border-2 border-foreground bg-yeezy-light px-4 py-1.5 shadow-[2px_2px_0px_0px_rgba(17,17,17,1)]">
+                  <Wallet className="h-4 w-4 text-foreground" />
+                  <span className="font-pixel text-sm font-bold text-foreground">${balance}</span>
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <Avatar className="h-9 w-9 border border-white/10 transition-transform hover:scale-105">
-                        <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email || ""} />
-                        <AvatarFallback>
-                          {user.email?.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-none border-2 border-foreground bg-yeezy-light hover:bg-foreground hover:text-background shadow-[2px_2px_0px_0px_rgba(17,17,17,1)] p-0 flex items-center justify-center">
+                      <span className="font-bold text-sm">
+                        {user.email?.substring(0, 2).toUpperCase()}
+                      </span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuContent className="w-56 rounded-none border-4 border-foreground bg-background shadow-[8px_8px_0px_0px_rgba(17,17,17,1)]" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none text-white">
+                        <p className="text-sm font-bold leading-none text-foreground uppercase">
                           {username || user.user_metadata?.full_name || "Usuario"}
                         </p>
-                        <p className="text-xs leading-none text-muted-foreground text-gray-400">
+                        <p className="text-xs leading-none text-foreground/70">
                           {user.email}
                         </p>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-foreground h-0.5" />
+                    <DropdownMenuItem className="focus:bg-foreground focus:text-background rounded-none cursor-pointer">
                       <UserIcon className="mr-2 h-4 w-4" />
-                      <span>Perfil</span>
+                      <span className="font-bold uppercase text-sm">Perfil</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-foreground focus:text-background rounded-none cursor-pointer">
                       <Trophy className="mr-2 h-4 w-4" />
-                      <span>Mis Retos</span>
+                      <span className="font-bold uppercase text-sm">Mis Retos</span>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:text-red-500">
+                    <DropdownMenuSeparator className="bg-foreground h-0.5" />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:bg-red-600 focus:text-background rounded-none cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Cerrar Sesión</span>
+                      <span className="font-bold uppercase text-sm">Cerrar Sesión</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -151,12 +151,12 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-4">
                 <Link href="/login">
-                  <Button variant="ghost" className="text-gray-300 hover:text-white hover:bg-white/5">
+                  <Button variant="ghost" className="text-foreground hover:bg-foreground hover:text-background rounded-none font-bold uppercase transition-colors">
                     Ingresar
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button variant="neon" className="font-bold">
+                  <Button className="yeezy-button">
                     Registrarse
                   </Button>
                 </Link>
@@ -168,7 +168,7 @@ export default function Navbar() {
           <div className="flex md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-white/10 hover:text-white focus:outline-none"
+              className="inline-flex items-center justify-center p-2 text-foreground hover:bg-foreground hover:text-background border-2 border-transparent hover:border-foreground transition-colors focus:outline-none"
             >
               <span className="sr-only">Open main menu</span>
               {isOpen ? (
@@ -188,55 +188,54 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-b border-white/5 bg-[#050505]"
+            className="md:hidden border-b-4 border-foreground bg-background"
           >
             <div className="space-y-1 px-4 pb-3 pt-2">
               {user ? (
                 <>
-                  <div className="flex items-center gap-3 px-3 py-2">
-                    <Avatar className="h-10 w-10 border border-white/10">
-                      <AvatarImage src={user.user_metadata?.avatar_url} />
-                      <AvatarFallback>{user.email?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                  <div className="flex items-center gap-3 px-3 py-2 border-b-2 border-foreground/20 pb-4">
+                    <div className="h-10 w-10 border-2 border-foreground bg-yeezy-light flex items-center justify-center font-bold shadow-[2px_2px_0px_0px_rgba(17,17,17,1)]">
+                      {user.email?.substring(0, 2).toUpperCase()}
+                    </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-white">
+                      <span className="text-sm font-bold text-foreground uppercase">
                         {username || user.user_metadata?.full_name || user.email}
                       </span>
-                      <span className="text-xs text-gray-400 font-mono">
+                      <span className="text-xs text-foreground/70 font-pixel mt-1">
                          Saldo: ${balance}
                       </span>
                     </div>
                   </div>
-                  <div className="mt-3 space-y-1">
-                     <Button variant="ghost" className="w-full justify-start text-gray-300">
+                  <div className="mt-3 space-y-2">
+                     <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-foreground hover:text-background rounded-none font-bold uppercase">
                         <UserIcon className="mr-2 h-4 w-4" /> Perfil
                      </Button>
-                     <Button variant="ghost" className="w-full justify-start text-gray-300">
+                     <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-foreground hover:text-background rounded-none font-bold uppercase">
                         <Trophy className="mr-2 h-4 w-4" /> Mis Retos
                      </Button>
                      <Link href="/dashboard" onClick={() => setIsOpen(false)}>
-                       <Button variant="ghost" className="w-full justify-start text-gray-300">
+                       <Button variant="ghost" className="w-full justify-start text-foreground hover:bg-foreground hover:text-background rounded-none font-bold uppercase">
                           <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                        </Button>
                      </Link>
                      <Button
                         variant="ghost"
                         onClick={handleSignOut}
-                        className="w-full justify-start text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                        className="w-full justify-start text-red-600 hover:bg-red-600 hover:text-background rounded-none font-bold uppercase mt-4"
                      >
                         <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
                      </Button>
                   </div>
                 </>
               ) : (
-                <div className="grid gap-2 p-2">
+                <div className="grid gap-3 p-2">
                   <Link href="/login" onClick={() => setIsOpen(false)}>
-                    <Button variant="glass" className="w-full justify-center">
+                    <Button variant="outline" className="w-full justify-center rounded-none border-2 border-foreground font-bold uppercase hover:bg-foreground hover:text-background">
                       Ingresar
                     </Button>
                   </Link>
                   <Link href="/register" onClick={() => setIsOpen(false)}>
-                    <Button variant="neon" className="w-full justify-center">
+                    <Button className="w-full justify-center yeezy-button">
                       Registrarse
                     </Button>
                   </Link>

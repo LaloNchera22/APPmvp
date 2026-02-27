@@ -26,8 +26,7 @@ export default function GoogleButton({ className, ...props }: GoogleButtonProps)
 
   return (
     <Button
-      variant="glass"
-      className={`w-full flex items-center justify-center gap-2 ${className}`}
+      className={`w-full flex items-center justify-center gap-2 bg-background text-foreground border-2 border-foreground rounded-none shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] hover:shadow-[0px_0px_0px_0px_rgba(17,17,17,1)] hover:translate-x-[4px] hover:translate-y-[4px] transition-all hover:bg-background ${className}`}
       onClick={handleLogin}
       {...props}
     >

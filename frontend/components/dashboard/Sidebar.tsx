@@ -38,10 +38,10 @@ export function Sidebar() {
   }
 
   return (
-    <div className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#050505] h-[calc(100vh-64px)] fixed top-16 left-0 overflow-y-auto z-40">
+    <div className="hidden md:flex flex-col w-64 border-r-4 border-foreground bg-background h-[calc(100vh-64px)] fixed top-16 left-0 overflow-y-auto z-40">
       <div className="flex-1 py-6 px-4 space-y-4">
-        <div className="px-2 mb-6">
-           <h2 className="text-xl font-bold text-white tracking-tight">Panel de Control</h2>
+        <div className="px-2 mb-6 border-b-4 border-foreground pb-4">
+           <h2 className="text-xl font-bold text-foreground uppercase tracking-tighter">Panel de Control</h2>
         </div>
 
         <nav className="space-y-2">
@@ -54,17 +54,13 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-3 font-bold uppercase transition-all border-2",
                   isActive
-                    ? isMatchmaking
-                      ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30"
-                      : "bg-white/10 text-neon-cyan"
-                    : isMatchmaking
-                    ? "text-neon-magenta/80 hover:text-neon-magenta hover:bg-neon-magenta/10 border border-transparent hover:border-neon-magenta/20"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                    ? "bg-foreground text-background border-foreground shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] translate-x-[-2px] translate-y-[-2px]"
+                    : "bg-background text-foreground border-transparent hover:border-foreground hover:bg-yeezy-light"
                 )}
               >
-                <item.icon className={cn("w-5 h-5", isMatchmaking && "animate-pulse")} />
+                <item.icon className={cn("w-5 h-5", isMatchmaking && !isActive && "animate-pulse")} />
                 {item.title}
               </Link>
             )
@@ -72,10 +68,10 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="p-4 border-t border-white/5">
+      <div className="p-4 border-t-4 border-foreground bg-yeezy-light">
         <Button
           variant="ghost"
-          className="w-full justify-start text-red-500 hover:text-red-400 hover:bg-red-500/10 gap-3"
+          className="w-full justify-start text-red-600 hover:bg-red-600 hover:text-background rounded-none font-bold uppercase gap-3 transition-colors border-2 border-transparent hover:border-red-600"
           onClick={handleSignOut}
         >
           <LogOut className="w-5 h-5" />

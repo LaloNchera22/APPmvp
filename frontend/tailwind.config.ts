@@ -9,15 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#050505",
-        foreground: "#ededed",
-        "deep-dark": "#050505",
-        "neon-cyan": "#06b6d4",
-        "neon-magenta": "#d946ef",
+        background: "#eaddcf",
+        foreground: "#111111",
+        "yeezy-dark": "#1a1a1a",
+        "yeezy-light": "#f4f4f0",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
+        pixel: ["var(--font-pixel)", "monospace"],
       },
       animation: {
         marquee: "marquee 25s linear infinite",
