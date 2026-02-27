@@ -73,20 +73,33 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('Challenge creation failed:', insertError)
 
-      // Rollback: Refund
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance: currentBalance }) // Restore original balance (approximate if race condition, but simple refund is +betAmount)
-        // Safer refund:
-        // .rpc('increment_balance', { ... }) if we had it, but here we do read-modify-write again or just set it back if we assume single thread per user mostly.
-        // Better:
-        // const { data: currentWallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', user.id).single()
-        // await supabaseAdmin.from('wallets').update({ balance: currentWallet.balance + betAmount })...
+      // Rollback: Refund safely with retry loop for optimistic locking
+      let refundSuccess = false
+      let attempts = 0
+      while (!refundSuccess && attempts < 3) {
+          attempts++
+          const { data: refundWallet } = await supabaseAdmin
+            .from('wallets')
+            .select('balance')
+            .eq('userId', user.id)
+            .single()
 
-      // Since we just deducted, let's add it back safely.
-      const { data: refundWallet } = await supabaseAdmin.from('wallets').select('balance').eq('userId', user.id).single()
-      if (refundWallet) {
-          await supabaseAdmin.from('wallets').update({ balance: Number(refundWallet.balance) + betAmount }).eq('userId', user.id)
+          if (refundWallet) {
+              const { data: updateData, error: refundError } = await supabaseAdmin
+                .from('wallets')
+                .update({ balance: Number(refundWallet.balance) + betAmount })
+                .eq('userId', user.id)
+                .eq('balance', refundWallet.balance) // Optimistic locking for refund
+                .select()
+
+              if (!refundError && updateData && updateData.length > 0) {
+                  refundSuccess = true
+              }
+          }
+      }
+
+      if (!refundSuccess) {
+          console.error(`CRITICAL: Failed to refund ${betAmount} to user ${user.id} after challenge creation failed.`)
       }
 
       return NextResponse.json({

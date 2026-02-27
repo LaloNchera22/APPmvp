@@ -217,7 +217,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                                       <Loader2 className="w-20 h-20 text-foreground animate-spin relative z-10" />
                                   </div>
                                   <div className="space-y-2">
-                                      <h3 className="text-3xl font-black text-foreground uppercase tracking-tighter">Esperando oponente...</h3>
+                                      <h3 className="text-3xl font-black text-foreground uppercase tracking-tighter">Encontrando oponente...</h3>
                                       <p className="text-foreground/80 max-w-md mx-auto text-lg font-bold">
                                           Comparte este enlace con tu oponente para comenzar.
                                       </p>
@@ -225,7 +225,7 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                               </div>
 
                               <div className="max-w-xl mx-auto space-y-3">
-                                  <label className="text-sm font-bold uppercase text-foreground/60">Enlace de invitación</label>
+                                  <label className="text-sm font-bold uppercase text-foreground/60">Compartir link del reto</label>
                                   <div className="relative flex items-center">
                                       <Input
                                         readOnly
@@ -279,6 +279,19 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                       )
                   ) : challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
                       <div className="space-y-6 animate-in zoom-in-95 duration-500">
+                          <div className="flex justify-center mb-6">
+                              <a
+                                href={challenge.gameLink || `https://lichess.org/${challenge.lichess_game_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="yeezy-button w-full max-w-sm flex items-center justify-center gap-3 py-4 text-lg font-bold uppercase"
+                              >
+                                <Play className="w-5 h-5 fill-current" />
+                                Ir a Lichess
+                                <ExternalLink className="w-5 h-5" />
+                              </a>
+                          </div>
+
                           <div className="aspect-[4/3] w-full bg-foreground border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] overflow-hidden">
                             <iframe
                               src={`https://lichess.org/${challenge.lichess_game_id}`}
