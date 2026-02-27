@@ -1,0 +1,33 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.6s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1097ms (123 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+Supabase URL or Key is missing in middleware. Using placeholders.
+ ○ Compiling /login ...
+ ✓ Compiled /login in 11.1s (1845 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /login 200 in 12159ms
+ ✓ Compiled in 1259ms (921 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+Supabase URL or Key is missing in middleware. Using placeholders.
+Supabase URL or Key is missing in middleware. Using placeholders.
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /login 200 in 48ms
+ ✓ Compiled in 1388ms (1941 modules)
+Supabase URL or Key is missing in middleware. Using placeholders.
+ ✓ Compiled /test-matchmaking in 444ms (1817 modules)
+Supabase URL or Key is missing. Using placeholders for build.
+ GET /test-matchmaking 200 in 739ms
+ ✓ Compiled in 781ms (1927 modules)

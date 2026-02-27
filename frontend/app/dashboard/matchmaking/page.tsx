@@ -3,9 +3,6 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Swords, Loader2, DollarSign } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function MatchmakingPage() {
   const [betAmount, setBetAmount] = useState<string>("")
@@ -55,61 +52,59 @@ export default function MatchmakingPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-      <Card className="w-full max-w-md bg-[#050505] border-white/10 shadow-2xl">
-        <CardHeader className="text-center space-y-4 pb-2">
-            <div className="mx-auto w-16 h-16 bg-neon-magenta/10 rounded-full flex items-center justify-center ring-1 ring-neon-magenta/30">
-                <Swords className="w-8 h-8 text-neon-magenta animate-pulse" />
+    <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 font-mono">
+      <div className="yeezy-card w-full max-w-md p-8 flex flex-col items-center text-center">
+        <div className="mb-6 border-4 border-foreground p-4 bg-background">
+          <Swords className="w-12 h-12 text-foreground" />
+        </div>
+
+        <h1 className="text-2xl font-pixel uppercase mb-2 text-foreground">Crear Reto de Ajedrez</h1>
+        <p className="text-foreground/80 mb-8 font-bold">DEFINE EL VALOR DE LA APUESTA PARA GENERAR TU ENLACE.</p>
+
+        <form onSubmit={handleCreateChallenge} className="w-full space-y-6">
+          <div className="space-y-2 text-left">
+            <label className="text-sm font-pixel uppercase text-foreground block">Monto a Apostar (USD)</label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 text-foreground" />
+              <input
+                type="number"
+                step="0.01"
+                min="0.1"
+                placeholder="0.00"
+                value={betAmount}
+                onChange={(e) => setBetAmount(e.target.value)}
+                className="w-full pl-12 h-14 bg-background border-4 border-foreground text-foreground placeholder:text-foreground/50 focus:outline-none focus:ring-0 text-xl font-bold rounded-none shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] transition-all"
+                autoFocus
+              />
             </div>
-            <CardTitle className="text-2xl font-bold text-white">Crear Reto de Ajedrez</CardTitle>
-            <p className="text-gray-400 text-sm">Define el valor de la apuesta para generar tu enlace.</p>
-        </CardHeader>
-        <CardContent>
-            <form onSubmit={handleCreateChallenge} className="space-y-6">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-300 ml-1">Monto a Apostar (USD)</label>
-                    <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                        <Input
-                            type="number"
-                            step="0.01"
-                            min="0.1"
-                            placeholder="0.00"
-                            value={betAmount}
-                            onChange={(e) => setBetAmount(e.target.value)}
-                            className="pl-10 h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-neon-magenta/50 focus:ring-neon-magenta/20 text-lg"
-                            autoFocus
-                        />
-                    </div>
-                </div>
+          </div>
 
-                {error && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm font-medium text-center animate-in fade-in slide-in-from-top-1">
-                        {error}
-                    </div>
-                )}
+          {error && (
+            <div className="p-3 border-4 border-red-500 bg-red-100 text-red-700 font-bold text-sm uppercase text-center">
+              {error}
+            </div>
+          )}
 
-                <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-12 bg-neon-magenta hover:bg-neon-magenta/90 text-white font-bold text-lg shadow-[0_0_20px_rgba(217,70,239,0.3)] hover:shadow-[0_0_30px_rgba(217,70,239,0.5)] transition-all"
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Creando...
-                        </>
-                    ) : (
-                        "Generar Link de Reto"
-                    )}
-                </Button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="yeezy-button w-full h-14 flex items-center justify-center text-lg"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                CREANDO...
+              </>
+            ) : (
+              "GENERAR LINK DE RETO"
+            )}
+          </button>
 
-                <p className="text-xs text-gray-500 text-center px-4">
-                    Al crear el reto, el monto se descontará de tu billetera temporalmente hasta que finalice la partida.
-                </p>
-            </form>
-        </CardContent>
-      </Card>
+          <p className="text-xs text-foreground/70 text-center font-bold px-4 uppercase mt-4">
+            Al crear el reto, el monto se descontará de tu billetera temporalmente hasta que finalice la partida.
+          </p>
+        </form>
+      </div>
     </div>
   )
 }
