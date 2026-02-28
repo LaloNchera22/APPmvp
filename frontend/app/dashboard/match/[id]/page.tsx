@@ -281,7 +281,18 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                       <div className="space-y-6 animate-in zoom-in-95 duration-500">
                           <div className="flex justify-center mb-6">
                               <a
-                                href={challenge.gameLink || `https://lichess.org/${challenge.lichess_game_id}`}
+                                href={
+                                  (function() {
+                                    try {
+                                      if (!challenge.gameLink) return `https://lichess.org/${challenge.lichess_game_id}`
+                                      const links = JSON.parse(challenge.gameLink)
+                                      return currentUserId === challenge.creatorId ? links.white : links.black
+                                    } catch {
+                                      // Fallback for older challenges or if JSON parse fails
+                                      return challenge.gameLink || `https://lichess.org/${challenge.lichess_game_id}`
+                                    }
+                                  })()
+                                }
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="yeezy-button w-full max-w-sm flex items-center justify-center gap-3 py-4 text-lg font-bold uppercase"

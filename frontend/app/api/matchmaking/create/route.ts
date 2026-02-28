@@ -45,6 +45,41 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 })
     }
 
+    // We don't deduct funds *before* challenge insertion to avoid complex rollback loops.
+    // However, since inserting a challenge and deducting funds isn't in a DB transaction via API,
+    // and a challenge isn't public until it's 'OPEN', we can safely:
+    // 2. Insert Challenge as 'PENDING_FUNDS' or just 'OPEN' and immediately deduct.
+    // Actually, deducting first and then creating the challenge is standard, but the refund logic here was bulky.
+    // Let's optimize it by extracting the refund helper, similar to `accept/route`.
+
+    const refundUser = async (userId: string, amount: number) => {
+        let refundSuccess = false
+        let attempts = 0
+        while (!refundSuccess && attempts < 3) {
+            attempts++
+            try {
+                const { data: w } = await supabaseAdmin.from('wallets').select('balance').eq('userId', userId).single()
+                if (w) {
+                    const { data: updateData, error: refundError } = await supabaseAdmin
+                        .from('wallets')
+                        .update({ balance: Number(w.balance) + amount })
+                        .eq('userId', userId)
+                        .eq('balance', w.balance) // Optimistic locking
+                        .select()
+
+                    if (!refundError && updateData && updateData.length > 0) {
+                        refundSuccess = true
+                    }
+                }
+            } catch (e) {
+                console.error(`Attempt ${attempts} to refund failed for user ${userId}:`, e)
+            }
+        }
+        if (!refundSuccess) {
+            console.error(`CRITICAL: Failed to refund ${amount} to user ${userId} after 3 attempts.`)
+        }
+    }
+
     // 2. Lock Funds (Direct Update)
     const newBalance = currentBalance - betAmount
     const { error: updateError } = await supabaseAdmin
@@ -61,7 +96,7 @@ export async function POST(request: Request) {
     const { data: newChallenge, error: insertError } = await supabaseAdmin
       .from('challenges')
       .insert({
-        game: 'CHESS_COM',
+        game: 'CHESS_COM', // using the existing GameTitle enum value, could map to Lichess logically if DB supports it, but preserving CHESS_COM to avoid enum constraint errors.
         metric: 'MATCH_WINNER',
         betAmount: betAmount,
         status: 'OPEN',
@@ -73,34 +108,8 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('Challenge creation failed:', insertError)
 
-      // Rollback: Refund safely with retry loop for optimistic locking
-      let refundSuccess = false
-      let attempts = 0
-      while (!refundSuccess && attempts < 3) {
-          attempts++
-          const { data: refundWallet } = await supabaseAdmin
-            .from('wallets')
-            .select('balance')
-            .eq('userId', user.id)
-            .single()
-
-          if (refundWallet) {
-              const { data: updateData, error: refundError } = await supabaseAdmin
-                .from('wallets')
-                .update({ balance: Number(refundWallet.balance) + betAmount })
-                .eq('userId', user.id)
-                .eq('balance', refundWallet.balance) // Optimistic locking for refund
-                .select()
-
-              if (!refundError && updateData && updateData.length > 0) {
-                  refundSuccess = true
-              }
-          }
-      }
-
-      if (!refundSuccess) {
-          console.error(`CRITICAL: Failed to refund ${betAmount} to user ${user.id} after challenge creation failed.`)
-      }
+      // Rollback: Refund safely
+      await refundUser(user.id, betAmount)
 
       return NextResponse.json({
         error: 'Error al crear el reto.',

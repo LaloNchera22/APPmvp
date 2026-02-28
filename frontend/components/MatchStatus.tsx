@@ -80,7 +80,7 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
        <CardContent className="space-y-6 relative z-10 pt-6">
          <div className="flex flex-col items-center gap-4">
            <a
-             href="https://www.chess.com"
+             href="https://lichess.org"
              target="_blank"
              rel="noopener noreferrer"
              className="group w-full"
@@ -90,7 +90,7 @@ export default function MatchStatus({ challengeId }: MatchStatusProps) {
                 className="w-full py-6 text-base"
              >
                <ExternalLink className="w-5 h-5 mr-2" />
-               Ir a Chess.com
+               Ir a Lichess
              </Button>
            </a>
 
