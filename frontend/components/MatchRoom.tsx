@@ -12,20 +12,28 @@ interface MatchRoomProps {
 export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
   const [isValidating, setIsValidating] = useState(true)
   const [lichessId, setLichessId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [creatorId, setCreatorId] = useState<string | null>(null)
   const supabase = createClient()
   const intervalRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
     const fetchChallenge = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            setCurrentUserId(user.id)
+        }
+
         const { data } = await supabase
           .from('challenges')
-          .select('lichess_game_id')
+          .select('lichess_game_id, creatorId')
           .eq('id', matchId)
           .single()
 
-        if (data?.lichess_game_id) {
-          setLichessId(data.lichess_game_id)
+        if (data) {
+          if (data.lichess_game_id) setLichessId(data.lichess_game_id)
+          if (data.creatorId) setCreatorId(data.creatorId)
         }
       } catch (error) {
         console.error('Error fetching challenge:', error)
@@ -88,7 +96,15 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
       {/* Action Button */}
       <div className="relative z-10 mb-10">
         <a
-          href={gameLink}
+          href={(() => {
+            try {
+              if (!gameLink) return `https://lichess.org/${lichessId || ''}`
+              const links = JSON.parse(gameLink)
+              return currentUserId === creatorId ? links.white : links.black
+            } catch {
+               return gameLink || `https://lichess.org/${lichessId || ''}`
+            }
+          })()}
           target="_blank"
           rel="noopener noreferrer"
           className="group relative inline-flex items-center gap-3 px-8 py-5 yeezy-button text-xl w-full max-w-sm justify-center"
@@ -104,7 +120,7 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
           Instrucciones
         </h3>
         <ol className="list-decimal list-inside space-y-3 text-foreground font-bold">
-            <li className="pl-2">Juega tu partida en Chess.com.</li>
+            <li className="pl-2">Juega tu partida en Lichess.</li>
             <li className="pl-2">Al terminar, el sistema validará el resultado automáticamente.</li>
         </ol>
       </div>

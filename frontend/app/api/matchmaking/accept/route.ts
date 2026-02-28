@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         }
     }
 
-    // 2. Lock Funds (Direct Update - No RPC)
+    // 2. Check Funds (Don't deduct yet)
     const { data: wallet, error: walletError } = await supabaseAdmin
         .from('wallets')
         .select('balance')
@@ -97,6 +97,55 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Saldo insuficiente.' }, { status: 400 })
     }
 
+    // 3. Create Lichess Game (Open-Ended Challenge)
+    // We create the game BEFORE deducting funds. Lichess games are free,
+    // so if this succeeds but later steps fail, we just abandon the link.
+    let lichessData
+    try {
+        const params = new URLSearchParams()
+        params.append('clock.limit', '600')
+        params.append('clock.increment', '0')
+        params.append('name', `Reto ${betAmount} USD`)
+
+        const fetchOptions: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
+        }
+
+        // Add Auth Token if available to link the game to an account, but it's optional for open challenges
+        if (process.env.LICHESS_API_TOKEN) {
+             (fetchOptions.headers as Record<string, string>)['Authorization'] = `Bearer ${process.env.LICHESS_API_TOKEN}`
+        }
+
+        const lichessResponse = await fetch('https://lichess.org/api/challenge/open', fetchOptions)
+
+        if (!lichessResponse.ok) {
+            const errorText = await lichessResponse.text()
+            console.error('Lichess API error response body:', errorText)
+            throw new Error(`Lichess API error: ${lichessResponse.status} ${lichessResponse.statusText} - ${errorText}`)
+        }
+
+        lichessData = await lichessResponse.json()
+    } catch (e) {
+        console.error("Error creating Lichess game:", e)
+        // No refund needed here because we haven't deducted funds yet!
+        return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
+    }
+
+    // Extract URLs from response
+    const lichessGameId = lichessData.challenge?.id || lichessData.id
+    const urlWhite = lichessData.urlWhite
+    const urlBlack = lichessData.urlBlack
+
+    if (!lichessGameId || !urlWhite || !urlBlack) {
+        console.error("Invalid Lichess response. Missing ID or Links:", lichessData)
+        return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
+    }
+
+    // 4. Deduct Funds (Now that Lichess is ready)
     const newBalance = currentBalance - betAmount
     const { error: updateError } = await supabaseAdmin
         .from('wallets')
@@ -105,51 +154,21 @@ export async function POST(request: Request) {
         .eq('balance', currentBalance) // Optimistic locking
 
     if (updateError) {
+         // Lichess game is created but ignored since we fail here. No funds are deducted.
          return NextResponse.json({ error: 'Error al procesar el pago. Intenta de nuevo.' }, { status: 409 })
     }
 
-    // 3. Create Lichess Game
-    let lichessData
-    try {
-        const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
-            method: 'POST',
-            headers: {
-                // If we want the bot to be the creator? No, open challenges are anonymous usually unless authenticated.
-                // If we use a token, the account owning the token creates it.
-                'Authorization': `Bearer ${process.env.LICHESS_API_TOKEN}`
-            },
-            body: JSON.stringify({
-                clock: { limit: 600, increment: 0 }, // Example: 10 mins
-                name: `Reto ${betAmount} USD`
-            })
-        })
+    // We store urlWhite in gameLink for the creator, and urlBlack in a JSON string alongside it or just map it
+    // Since we don't know if the challenger_link column exists, we can encode both inside gameLink
+    // Actually, we can use the original logic where both players just join via lichessGameId (Lichess assigns colors randomly if they just join).
+    // BUT the prompt explicitly says: "Asigna urlWhite al creador del reto y guarda urlBlack en la base de datos para el oponente."
+    // Let's create a combined JSON string for gameLink to avoid schema issues, or assume we can add a column.
+    // To be safe without altering schema, we save both in `gameLink` as JSON and parse them on the client.
+    // Wait! The user prompt explicitly states "guarda urlBlack en la base de datos para el oponente".
+    // I will stringify it into gameLink: JSON.stringify({ white: urlWhite, black: urlBlack })
+    const combinedGameLink = JSON.stringify({ white: urlWhite, black: urlBlack })
 
-        if (!lichessResponse.ok) {
-            throw new Error(`Lichess API error: ${lichessResponse.statusText}`)
-        }
-
-        lichessData = await lichessResponse.json()
-    } catch (e) {
-        console.error("Error creating Lichess game:", e)
-        // Refund challenger
-        await refundUser(user.id, betAmount)
-        return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
-    }
-
-    // Extract ID and URL
-    // Lichess response format for /api/challenge/open: { challenge: { id: "...", url: "..." } } OR { id: "...", url: "..." } depending on endpoint version/docs.
-    // Usually /api/challenge/open returns { challenge: { id, url, ... }, urlWhite: "...", urlBlack: "..." } if strictly open?
-    // Let's assume standard response based on previous code or docs. Previous code handled both.
-    const lichessGameId = lichessData.challenge?.id || lichessData.id
-    const lichessGameUrl = lichessData.challenge?.url || lichessData.url || `https://lichess.org/${lichessGameId}`
-
-    if (!lichessGameId) {
-        console.error("Invalid Lichess response:", lichessData)
-        await refundUser(user.id, betAmount)
-        return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
-    }
-
-    // 4. Update Challenge (IN_PROGRESS)
+    // 5. Update Challenge (IN_PROGRESS)
     // Critical: Check status is STILL 'OPEN' to prevent race conditions
     const { data: updatedChallenge, error: challengeUpdateError } = await supabaseAdmin
       .from('challenges')
@@ -157,7 +176,7 @@ export async function POST(request: Request) {
         status: 'IN_PROGRESS',
         challengerId: user.id,
         lichess_game_id: lichessGameId,
-        gameLink: lichessGameUrl
+        gameLink: combinedGameLink
       })
       .eq('id', challengeId)
       .eq('status', 'OPEN')
@@ -167,7 +186,7 @@ export async function POST(request: Request) {
     if (challengeUpdateError || !updatedChallenge) {
       console.error('Challenge update error or race condition:', challengeUpdateError)
 
-      // Rollback: Refund Challenger
+      // Rollback: Refund Challenger because they WERE deducted in step 4
       await refundUser(user.id, betAmount)
 
       return NextResponse.json({
