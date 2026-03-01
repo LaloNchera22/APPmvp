@@ -72,7 +72,7 @@ export default async function PublicChallengesPage() {
               </div>
 
               {challenge.creatorId !== user.id ? (
-                  <form action={`/dashboard/match/${challenge.id}`}>
+                  <form action={`/dashboard/play/${challenge.id}`}>
                       <button type="submit" className="yeezy-button w-full font-bold">
                         Aceptar por ${challenge.betAmount}
                       </button>

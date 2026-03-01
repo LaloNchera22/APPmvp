@@ -270,21 +270,12 @@ export default function PlayMatchRoom() {
                         href={playerUrl || `https://lichess.org/${challenge.lichess_game_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="yeezy-button w-full max-w-sm flex items-center justify-center gap-3 py-4 text-lg font-bold uppercase"
+                        className="yeezy-button w-full max-w-lg flex items-center justify-center gap-4 py-8 text-2xl font-black uppercase shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] transition-all"
                       >
-                        <Play className="w-5 h-5 fill-current" />
-                        Abrir en Lichess (App)
-                        <ExternalLink className="w-5 h-5" />
+                        <Play className="w-8 h-8 fill-current" />
+                        IR A JUGAR A LICHESS
+                        <ExternalLink className="w-8 h-8" />
                       </a>
-                  </div>
-
-                  <div className="aspect-[4/3] w-full bg-foreground border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] overflow-hidden">
-                    <iframe
-                      src={playerUrl || `https://lichess.org/${challenge.lichess_game_id}`}
-                      className="w-full h-full"
-                      frameBorder="0"
-                      allowTransparency={true}
-                    />
                   </div>
 
                   <div className="space-y-4 pt-8">
