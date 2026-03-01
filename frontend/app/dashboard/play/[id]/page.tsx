@@ -4,8 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Loader2, Play, AlertCircle, Swords, Trophy, Copy } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Chess } from "chess.js"
 import { Chessboard } from "react-chessboard"
 
@@ -75,7 +73,7 @@ export default function PlayMatchRoom() {
     })
     fetchChallenge()
 
-    // Realtime subscription
+    // Realtime subscription - Dependencies must ONLY be [challengeId] to avoid infinite reconnect loop
     const channel = supabase
       .channel(`play_room_${challengeId}`)
       .on(
@@ -87,12 +85,15 @@ export default function PlayMatchRoom() {
 
           if (updatedChallenge.fen) {
               setFen((currentFen) => {
-                  if (updatedChallenge.fen !== currentFen) {
+                  // Fallback in case updatedChallenge.fen is undefined, although the if check above prevents it.
+                  // But TS might complain if updatedChallenge.fen is string | undefined and returned inside this closure.
+                  const newFenString = updatedChallenge.fen as string;
+                  if (newFenString !== currentFen) {
                       try {
                           const newGame = new Chess()
-                          newGame.load(updatedChallenge.fen)
+                          newGame.load(newFenString)
                           setGame(newGame)
-                          return updatedChallenge.fen
+                          return newFenString
                       } catch (e) {
                           console.error("Error updating fen from realtime:", e)
                           return currentFen
@@ -135,7 +136,8 @@ export default function PlayMatchRoom() {
     }
   }
 
-  const checkGameOver = async (currentGame: Chess) => {
+  // Called to process backend win/draw payout
+  const checkGameOver = async (currentGame: Chess, newFen: string) => {
       let result = null
       if (currentGame.isCheckmate()) {
           result = 'win'
@@ -162,11 +164,31 @@ export default function PlayMatchRoom() {
                   })
               })
               const data = await res.json()
-              if (!res.ok) console.error("Error finalizing match:", data.error)
+              if (!res.ok) {
+                  console.error("Error finalizing match:", data.error)
+              }
           } catch (err) {
               console.error("Failed to call finish endpoint:", err)
           }
       }
+
+      // FINALLY, update the FEN.
+      // If it's a checkmate, we must payout BEFORE updating the DB FEN state to avoid players manipulating state
+      // locally and missing payout.
+      setIsUpdatingFen(true)
+      supabase
+          .from('challenges')
+          .update({ fen: newFen })
+          .eq('id', challengeId)
+          .then(({ error }) => {
+              if (error) {
+                  // Revert FEN visually on failure
+                  setFen(game.fen());
+                  setGame(game);
+                  alert('Error al registrar movimiento');
+              }
+              setIsUpdatingFen(false)
+          })
   }
 
   function onDrop(sourceSquare: string, targetSquare: string, piece: string) {
@@ -199,17 +221,8 @@ export default function PlayMatchRoom() {
           const newFen = gameCopy.fen()
           setFen(newFen)
 
-          // Broadcast new fen
-          setIsUpdatingFen(true)
-          supabase
-              .from('challenges')
-              .update({ fen: newFen })
-              .eq('id', challengeId)
-              .then(({ error }) => {
-                  if (error) { setFen(game.fen()); setGame(game); alert('Error al registrar movimiento'); setIsUpdatingFen(false); return; }
-                  setIsUpdatingFen(false)
-                  checkGameOver(gameCopy)
-              })
+          // Run finish & fen DB update check
+          checkGameOver(gameCopy, newFen)
 
           return true
       } catch (err) {
@@ -234,7 +247,7 @@ export default function PlayMatchRoom() {
                  <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
                  <h2 className="text-2xl font-black text-red-700 uppercase mb-2">Error</h2>
                  <p className="text-red-600 font-bold uppercase">{error || "Reto no encontrado"}</p>
-                 <Button onClick={() => router.push("/dashboard")} className="mt-6 yeezy-button w-full">Volver al Dashboard</Button>
+                 <button onClick={() => router.push("/dashboard")} className="mt-6 yeezy-button w-full">Volver al Dashboard</button>
               </div>
           </div>
       )
@@ -270,23 +283,22 @@ export default function PlayMatchRoom() {
                           </div>
                       </div>
 
-                      <div className="max-w-xl mx-auto space-y-3">
-                          <label className="text-sm font-bold uppercase text-foreground/60">Compartir link del reto</label>
+                      <div className="max-w-xl mx-auto space-y-3 text-left">
+                          <label className="text-sm font-bold uppercase text-foreground/60 block mb-1">Compartir link del reto</label>
                           <div className="relative flex items-center">
-                              <Input
+                              <input
                                 readOnly
                                 value={typeof window !== 'undefined' ? window.location.href : ''}
-                                className="pr-16 border-2 border-foreground font-pixel text-xs bg-yeezy-light h-14"
+                                className="w-full px-4 pr-16 py-4 border-4 border-foreground font-pixel text-xs bg-yeezy-light text-foreground focus:outline-none focus:ring-0"
                               />
-                              <Button
-                                  size="sm"
-                                  className="absolute right-1 top-1 bottom-1 h-auto w-12 bg-foreground text-background hover:bg-foreground/90 rounded-none border-2 border-transparent"
+                              <button
+                                  className="absolute right-1 top-1 bottom-1 w-14 bg-foreground text-background flex items-center justify-center border-none cursor-pointer hover:bg-foreground/90 transition-colors"
                                   onClick={() => {
                                     navigator.clipboard.writeText(window.location.href)
                                   }}
                               >
-                                  <Copy className="w-4 h-4" />
-                              </Button>
+                                  <Copy className="w-5 h-5" />
+                              </button>
                           </div>
                       </div>
                   </div>
@@ -304,10 +316,10 @@ export default function PlayMatchRoom() {
                           </p>
                       </div>
 
-                      <Button
+                      <button
                         onClick={handleAcceptChallenge}
                         disabled={accepting}
-                        className="yeezy-button h-16 px-10 text-xl w-full max-w-sm"
+                        className="yeezy-button h-16 px-10 text-xl w-full max-w-sm flex items-center justify-center"
                       >
                         {accepting ? (
                           <>
@@ -320,7 +332,7 @@ export default function PlayMatchRoom() {
                             ACEPTAR Y APOSTAR ${challenge.betAmount}
                           </>
                         )}
-                      </Button>
+                      </button>
                   </div>
               )
           ) : challenge.status === 'IN_PROGRESS' ? (
@@ -365,9 +377,9 @@ export default function PlayMatchRoom() {
                      </div>
                   )}
 
-                  <Button onClick={() => router.push("/dashboard")} className="yeezy-button px-8 py-6 text-lg h-auto mt-8 w-full max-w-sm">
+                  <button onClick={() => router.push("/dashboard")} className="yeezy-button px-8 py-6 text-lg h-auto mt-8 w-full max-w-sm">
                       Volver al Dashboard
-                  </Button>
+                  </button>
               </div>
           ) : (
             <div className="text-center py-10 font-bold uppercase text-foreground/60">
