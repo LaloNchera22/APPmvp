@@ -14,7 +14,8 @@ interface Challenge {
   creatorId: string
   challengerId: string
   lichess_game_id?: string
-  gameLink?: string
+  url_white?: string
+  url_black?: string
   winnerId?: string
 }
 
@@ -159,18 +160,11 @@ export default function PlayMatchRoom() {
       )
   }
 
-  let playerUrl = challenge.gameLink || ""
-  try {
-      if (challenge.gameLink && challenge.gameLink.startsWith('{')) {
-          const links = JSON.parse(challenge.gameLink)
-          if (currentUserId === challenge.creatorId) {
-              playerUrl = links.white || playerUrl
-          } else {
-              playerUrl = links.black || playerUrl
-          }
-      }
-  } catch (e) {
-      console.error("Error parsing gameLink JSON", e)
+  let playerUrl = ""
+  if (currentUserId === challenge.creatorId) {
+      playerUrl = challenge.url_white || ""
+  } else {
+      playerUrl = challenge.url_black || ""
   }
 
   return (

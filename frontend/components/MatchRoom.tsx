@@ -5,11 +5,11 @@ import { createClient } from '@/utils/supabase/client'
 import { Loader2, ExternalLink, Trophy, Swords } from 'lucide-react'
 
 interface MatchRoomProps {
-  gameLink: string
+  playerUrl: string
   matchId: string
 }
 
-export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
+export default function MatchRoom({ playerUrl, matchId }: MatchRoomProps) {
   const [isValidating, setIsValidating] = useState(true)
   const [lichessId, setLichessId] = useState<string | null>(null)
   const supabase = createClient()
@@ -88,7 +88,7 @@ export default function MatchRoom({ gameLink, matchId }: MatchRoomProps) {
       {/* Action Button */}
       <div className="relative z-10 mb-10">
         <a
-          href={gameLink}
+          href={playerUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="group relative inline-flex items-center gap-3 px-8 py-5 yeezy-button text-xl w-full max-w-sm justify-center"
