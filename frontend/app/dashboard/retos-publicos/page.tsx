@@ -29,7 +29,7 @@ export default async function PublicChallengesPage() {
     .from("challenges")
     .select("*")
     .eq("status", "OPEN")
-    .eq("type", "public")
+    .eq("match_type", "public")
     .order("createdAt", { ascending: false })
 
   if (challengesError) {

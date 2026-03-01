@@ -163,7 +163,7 @@ export default function PlayMatchRoom() {
   let playerUrl = ""
   if (currentUserId === challenge.creatorId) {
       playerUrl = challenge.url_white || ""
-  } else {
+  } else if (currentUserId === challenge.challengerId) {
       playerUrl = challenge.url_black || ""
   }
 
