@@ -44,7 +44,7 @@ export default function MatchmakingPage() {
       if (type === 'public') {
         router.push(`/dashboard/retos-publicos`)
       } else {
-        router.push(`/dashboard/match/${data.id}`)
+        router.push(`/dashboard/play/${data.id}`)
       }
 
     } catch (err) {

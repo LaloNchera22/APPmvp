@@ -58,7 +58,84 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Error al actualizar saldo. Intenta de nuevo.' }, { status: 409 })
     }
 
-    // 3. Create Challenge
+    // Helper function for refunds
+    const refundUser = async (userId: string, amount: number) => {
+        let refundSuccess = false
+        let attempts = 0
+        while (!refundSuccess && attempts < 3) {
+            attempts++
+            try {
+                const { data: refundWallet } = await supabaseAdmin
+                    .from('wallets')
+                    .select('balance')
+                    .eq('userId', userId)
+                    .single()
+
+                if (refundWallet) {
+                    const { data: updateData, error: refundError } = await supabaseAdmin
+                        .from('wallets')
+                        .update({ balance: Number(refundWallet.balance) + amount })
+                        .eq('userId', userId)
+                        .eq('balance', refundWallet.balance) // Optimistic locking for refund
+                        .select()
+
+                    if (!refundError && updateData && updateData.length > 0) {
+                        refundSuccess = true
+                    }
+                }
+            } catch (e) {
+                console.error(`Attempt ${attempts} to refund failed for user ${userId}:`, e)
+            }
+        }
+        if (!refundSuccess) {
+            console.error(`CRITICAL: Failed to refund ${amount} to user ${userId} after 3 attempts.`)
+        }
+    }
+
+    // 3. Create Lichess Game
+    let lichessData
+    try {
+        const bodyStr = new URLSearchParams({
+            'clock.limit': '600',
+            'clock.increment': '0',
+            'name': `Reto ${betAmount} USD`
+        }).toString()
+
+        const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: bodyStr
+        })
+
+        if (!lichessResponse.ok) {
+            const errText = await lichessResponse.text()
+            console.error('Lichess API error text:', errText)
+            throw new Error(`Lichess API error: ${lichessResponse.statusText} - ${errText}`)
+        }
+
+        lichessData = await lichessResponse.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+        console.error("Error creating Lichess game:", JSON.stringify(e, null, 2))
+        // Refund creator
+        await refundUser(user.id, betAmount)
+        return NextResponse.json({ error: e.message || 'Error al crear la partida en Lichess.', details: e }, { status: 502 })
+    }
+
+    // Extract ID and URLs
+    const lichessGameId = lichessData.challenge?.id || lichessData.id
+    const urlWhite = lichessData.urlWhite || lichessData.challenge?.url || lichessData.url
+    const urlBlack = lichessData.urlBlack || lichessData.challenge?.url || lichessData.url
+
+    if (!lichessGameId || !urlWhite || !urlBlack) {
+        console.error("Invalid Lichess response:", lichessData)
+        await refundUser(user.id, betAmount)
+        return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
+    }
+
+    // 4. Create Challenge
     let newChallenge;
     let insertError;
 
@@ -66,14 +143,15 @@ export async function POST(request: Request) {
       const result = await supabaseAdmin
         .from('challenges')
         .insert({
-          game: 'CHESS_COM',
+          game: 'LICHESS',
           metric: 'MATCH_WINNER',
           betAmount: betAmount,
           status: 'OPEN',
           creatorId: user.id,
           match_type: challengeType,
-          url_white: null,
-          url_black: null
+          lichess_game_id: lichessGameId,
+          url_white: urlWhite,
+          url_black: urlBlack
         })
         .select()
         .single();
@@ -89,33 +167,7 @@ export async function POST(request: Request) {
       console.error('Challenge creation failed:', JSON.stringify(insertError, null, 2));
 
       // Rollback: Refund safely with retry loop for optimistic locking
-      let refundSuccess = false
-      let attempts = 0
-      while (!refundSuccess && attempts < 3) {
-          attempts++
-          const { data: refundWallet } = await supabaseAdmin
-            .from('wallets')
-            .select('balance')
-            .eq('userId', user.id)
-            .single()
-
-          if (refundWallet) {
-              const { data: updateData, error: refundError } = await supabaseAdmin
-                .from('wallets')
-                .update({ balance: Number(refundWallet.balance) + betAmount })
-                .eq('userId', user.id)
-                .eq('balance', refundWallet.balance) // Optimistic locking for refund
-                .select()
-
-              if (!refundError && updateData && updateData.length > 0) {
-                  refundSuccess = true
-              }
-          }
-      }
-
-      if (!refundSuccess) {
-          console.error(`CRITICAL: Failed to refund ${betAmount} to user ${user.id} after challenge creation failed.`)
-      }
+      await refundUser(user.id, betAmount)
 
       return NextResponse.json({
         error: insertError.message || 'Error al crear el reto.',
