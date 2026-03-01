@@ -134,8 +134,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      challengeId: updatedChallenge.id,
-      url_black: updatedChallenge.url_black
+      challengeId: updatedChallenge.id
     })
 
   } catch (err: unknown) {

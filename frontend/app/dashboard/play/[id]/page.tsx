@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
-import { Loader2, Play, ExternalLink, AlertCircle, Swords, Trophy, Copy } from "lucide-react"
+import { Loader2, Play, AlertCircle, Swords, Trophy, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { motion, AnimatePresence } from "framer-motion"
+import { Chess } from "chess.js"
+import { Chessboard } from "react-chessboard"
 
 interface Challenge {
   id: string
@@ -14,9 +15,7 @@ interface Challenge {
   betAmount: number
   creatorId: string
   challengerId: string
-  lichess_game_id?: string
-  url_white?: string
-  url_black?: string
+  fen?: string
   winnerId?: string
 }
 
@@ -34,10 +33,10 @@ export default function PlayMatchRoom() {
   // Accept Challenge State
   const [accepting, setAccepting] = useState(false)
 
-  // Verification State
-  const [verifying, setVerifying] = useState(false)
-  const [verifyMessage, setVerifyMessage] = useState("")
-  const [verifyStatus, setVerifyStatus] = useState<'IDLE' | 'COMPLETED' | 'PENDING' | 'ERROR'>('IDLE')
+  // Chess State
+  const [game, setGame] = useState(new Chess())
+  const [fen, setFen] = useState(game.fen())
+  const [isUpdatingFen, setIsUpdatingFen] = useState(false)
 
   const fetchChallenge = async () => {
     try {
@@ -48,10 +47,20 @@ export default function PlayMatchRoom() {
         .single()
 
       if (error) throw error
-      setChallenge(data as unknown as Challenge)
-      if (data.status === 'COMPLETED') {
-        setVerifyStatus('COMPLETED')
+      const fetchedChallenge = data as unknown as Challenge
+      setChallenge(fetchedChallenge)
+
+      if (fetchedChallenge.fen) {
+        try {
+            const newGame = new Chess()
+            newGame.load(fetchedChallenge.fen)
+            setGame(newGame)
+            setFen(fetchedChallenge.fen)
+        } catch (err) {
+            console.error("Error loading fen:", err)
+        }
       }
+
     } catch (e) {
       console.error("Error fetching challenge:", e)
       setError("No se pudo cargar la partida.")
@@ -73,9 +82,18 @@ export default function PlayMatchRoom() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'challenges', filter: `id=eq.${challengeId}` },
         (payload) => {
-          setChallenge(payload.new as unknown as Challenge)
-          if (payload.new.status === 'COMPLETED') {
-            setVerifyStatus('COMPLETED')
+          const updatedChallenge = payload.new as unknown as Challenge
+          setChallenge(updatedChallenge)
+
+          if (updatedChallenge.fen && updatedChallenge.fen !== fen) {
+            try {
+                const newGame = new Chess()
+                newGame.load(updatedChallenge.fen)
+                setGame(newGame)
+                setFen(updatedChallenge.fen)
+            } catch (err) {
+                console.error("Error updating fen from realtime:", err)
+            }
           }
         }
       )
@@ -85,7 +103,7 @@ export default function PlayMatchRoom() {
       supabase.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId])
+  }, [challengeId, fen])
 
   const handleAcceptChallenge = async () => {
     setAccepting(true)
@@ -111,45 +129,87 @@ export default function PlayMatchRoom() {
     }
   }
 
-  const handleVerify = async () => {
-      if (!challenge?.lichess_game_id) return
-      setVerifying(true)
-      setVerifyMessage("")
-      setVerifyStatus('PENDING')
+  const checkGameOver = async (currentGame: Chess) => {
+      let result = null
+      if (currentGame.isCheckmate()) {
+          result = 'win'
+      } else if (currentGame.isDraw() || currentGame.isStalemate() || currentGame.isThreefoldRepetition() || currentGame.isInsufficientMaterial()) {
+          result = 'draw'
+      }
+
+      if (result) {
+          const turn = currentGame.turn()
+          // If it's black's turn to move and they are checkmated, white won.
+          let winnerId = undefined
+          if (result === 'win') {
+              winnerId = turn === 'b' ? challenge?.creatorId : challenge?.challengerId
+          }
+
+          try {
+              const res = await fetch('/api/matchmaking/finish', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      challengeId,
+                      result,
+                      winnerId
+                  })
+              })
+              const data = await res.json()
+              if (!res.ok) console.error("Error finalizing match:", data.error)
+          } catch (err) {
+              console.error("Failed to call finish endpoint:", err)
+          }
+      }
+  }
+
+  function onDrop(sourceSquare: string, targetSquare: string, piece: string) {
+      if (!challenge || challenge.status !== 'IN_PROGRESS' || isUpdatingFen) return false
+
+      const isWhite = currentUserId === challenge.creatorId
+      const isBlack = currentUserId === challenge.challengerId
+
+      // Prevent moving if it's not the user's turn
+      if ((game.turn() === 'w' && !isWhite) || (game.turn() === 'b' && !isBlack)) {
+          return false
+      }
+
+      // Prevent moving opponent's pieces
+      if (piece && piece[0] === 'w' && !isWhite) return false
+      if (piece && piece[0] === 'b' && !isBlack) return false
 
       try {
-          const response = await fetch('/api/verify-chess', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  challengeId: challenge.id,
-                  gameId: challenge.lichess_game_id
-              })
+          const gameCopy = new Chess()
+          gameCopy.load(game.fen())
+          const move = gameCopy.move({
+              from: sourceSquare,
+              to: targetSquare,
+              promotion: "q", // Always promote to queen for simplicity in this implementation
           })
 
-          const data = await response.json()
+          if (move === null) return false
 
-          if (!response.ok) {
-              setVerifyStatus('ERROR')
-              setVerifyMessage(data.error || 'Error al verificar. Asegúrate de tener tu cuenta de Lichess vinculada.')
-              return
-          }
+          setGame(gameCopy)
+          const newFen = gameCopy.fen()
+          setFen(newFen)
 
-          if (data.status === 'COMPLETED') {
-               setVerifyStatus('COMPLETED')
-               // Give time for UI update
-               setTimeout(() => fetchChallenge(), 1000)
-          } else {
-               setVerifyStatus('PENDING')
-               setVerifyMessage(data.message || 'La partida sigue en curso.')
-          }
+          // Broadcast new fen
+          setIsUpdatingFen(true)
+          supabase
+              .from('challenges')
+              .update({ fen: newFen })
+              .eq('id', challengeId)
+              .then(({ error }) => {
+                  if (error) console.error("Error updating fen:", error)
+                  setIsUpdatingFen(false)
+              })
 
+          checkGameOver(gameCopy)
+
+          return true
       } catch (err) {
-          console.error(err)
-          setVerifyStatus('ERROR')
-          setVerifyMessage('Error de conexión al verificar.')
-      } finally {
-          setVerifying(false)
+          console.error("Invalid move:", err)
+          return false
       }
   }
 
@@ -175,12 +235,7 @@ export default function PlayMatchRoom() {
       )
   }
 
-  let playerUrl = ""
-  if (currentUserId === challenge.creatorId) {
-      playerUrl = challenge.url_white || ""
-  } else if (currentUserId === challenge.challengerId) {
-      playerUrl = challenge.url_black || ""
-  }
+  const boardOrientation = currentUserId === challenge.challengerId ? 'black' : 'white'
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 font-mono pb-20">
@@ -190,7 +245,7 @@ export default function PlayMatchRoom() {
           </div>
           <div>
               <h1 className="text-2xl md:text-3xl font-pixel uppercase text-foreground leading-tight">Partida en Curso</h1>
-              <p className="text-foreground/80 font-bold uppercase text-sm md:text-base mt-1">Lichess • ${challenge.betAmount} USD</p>
+              <p className="text-foreground/80 font-bold uppercase text-sm md:text-base mt-1">Ajedrez • ${challenge.betAmount} USD</p>
           </div>
       </div>
 
@@ -263,56 +318,22 @@ export default function PlayMatchRoom() {
                       </Button>
                   </div>
               )
-          ) : challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
+          ) : challenge.status === 'IN_PROGRESS' ? (
               <div className="space-y-6 animate-in zoom-in-95 duration-500">
-                  <div className="flex justify-center mb-6">
-                      <a
-                        href={playerUrl || `https://lichess.org/${challenge.lichess_game_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="yeezy-button w-full max-w-lg flex items-center justify-center gap-4 py-8 text-2xl font-black uppercase shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] transition-all"
-                      >
-                        <Play className="w-8 h-8 fill-current" />
-                        IR A JUGAR A LICHESS
-                        <ExternalLink className="w-8 h-8" />
-                      </a>
-                  </div>
-
-                  <div className="space-y-4 pt-8">
-                       <Button
-                          onClick={handleVerify}
-                          disabled={verifying}
-                          className={`w-full font-bold h-16 text-xl transition-all duration-300 ${
-                              verifying
-                              ? 'bg-foreground/20 text-foreground/50 border-4 border-foreground/20 cursor-not-allowed rounded-none'
-                              : 'yeezy-button'
-                          }`}
-                          >
-                          {verifying ? (
-                              <>
-                              <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                              Verificando...
-                              </>
-                          ) : (
-                              "VERIFICAR RESULTADO"
-                          )}
-                        </Button>
-
-                        <AnimatePresence mode="wait">
-                          {verifyStatus !== 'IDLE' && verifyStatus !== 'COMPLETED' && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`p-4 border-4 text-sm font-bold uppercase flex items-start gap-3 ${
-                                  verifyStatus === 'ERROR'
-                                  ? 'bg-red-100 border-red-600 text-red-700'
-                                  : 'bg-yellow-100 border-yellow-500 text-yellow-800'
-                              }`}>
-                                  <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                                  <span className="text-base">{verifyMessage}</span>
-                              </motion.div>
-                          )}
-                        </AnimatePresence>
+                  <div className="flex flex-col items-center space-y-4">
+                      <div className="flex justify-between w-full max-w-lg mb-2 font-bold uppercase">
+                          <span>{boardOrientation === 'white' ? 'Tu Turno' : 'Turno del Oponente'}</span>
+                          <span>{game.turn() === 'w' ? 'Blancas' : 'Negras'} a mover</span>
+                      </div>
+                      <div className="w-full max-w-lg aspect-square border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] p-1 bg-yeezy-light">
+                          <Chessboard
+                              position={fen}
+                              onPieceDrop={(source, target, piece) => onDrop(source, target, piece as string)}
+                              boardOrientation={boardOrientation}
+                              customDarkSquareStyle={{ backgroundColor: "#111111" }}
+                              customLightSquareStyle={{ backgroundColor: "#eaddcf" }}
+                          />
+                      </div>
                   </div>
               </div>
           ) : challenge.status === 'COMPLETED' ? (
