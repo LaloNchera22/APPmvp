@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
-import { Loader2, Play, ExternalLink, AlertCircle, Swords, Trophy } from "lucide-react"
+import { Loader2, Play, ExternalLink, AlertCircle, Swords, Trophy, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface Challenge {
@@ -29,6 +30,9 @@ export default function PlayMatchRoom() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Accept Challenge State
+  const [accepting, setAccepting] = useState(false)
 
   // Verification State
   const [verifying, setVerifying] = useState(false)
@@ -82,6 +86,30 @@ export default function PlayMatchRoom() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId])
+
+  const handleAcceptChallenge = async () => {
+    setAccepting(true)
+    try {
+      const res = await fetch('/api/matchmaking/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al aceptar el reto')
+      }
+
+      // Challenge state will be updated via Realtime subscription
+    } catch (e) {
+      console.error("Error accepting challenge:", e)
+      alert(e instanceof Error ? e.message : "Error al aceptar el reto")
+    } finally {
+      setAccepting(false)
+    }
+  }
 
   const handleVerify = async () => {
       if (!challenge?.lichess_game_id) return
@@ -147,19 +175,6 @@ export default function PlayMatchRoom() {
       )
   }
 
-  if (challenge.status === 'OPEN') {
-      return (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] p-4 text-center">
-              <div className="bg-yellow-100 border-4 border-yellow-600 p-8 shadow-[8px_8px_0px_0px_rgba(202,138,4,1)]">
-                 <AlertCircle className="w-16 h-16 text-yellow-600 mx-auto mb-4" />
-                 <h2 className="text-2xl font-black text-yellow-700 uppercase mb-2">Reto no iniciado</h2>
-                 <p className="text-yellow-600 font-bold uppercase">Este reto aún no ha sido aceptado por tu oponente.</p>
-                 <Button onClick={() => router.push(`/dashboard/match/${challenge.id}`)} className="mt-6 yeezy-button w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 border-yellow-600">Ver Detalles</Button>
-              </div>
-          </div>
-      )
-  }
-
   let playerUrl = ""
   if (currentUserId === challenge.creatorId) {
       playerUrl = challenge.url_white || ""
@@ -180,7 +195,75 @@ export default function PlayMatchRoom() {
       </div>
 
       <div className="bg-background border-4 border-foreground p-6 shadow-[8px_8px_0px_0px_rgba(17,17,17,1)]">
-          {challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
+          {challenge.status === 'OPEN' ? (
+              currentUserId === challenge.creatorId ? (
+                  <div className="space-y-8 text-center py-6">
+                      <div className="flex flex-col items-center justify-center space-y-6">
+                          <div className="relative">
+                              <Loader2 className="w-20 h-20 text-foreground animate-spin relative z-10" />
+                          </div>
+                          <div className="space-y-2">
+                              <h3 className="text-3xl font-black text-foreground uppercase tracking-tighter">Esperando oponente...</h3>
+                              <p className="text-foreground/80 max-w-md mx-auto text-lg font-bold">
+                                  Comparte este enlace con tu amigo para que acepte el reto.
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className="max-w-xl mx-auto space-y-3">
+                          <label className="text-sm font-bold uppercase text-foreground/60">Compartir link del reto</label>
+                          <div className="relative flex items-center">
+                              <Input
+                                readOnly
+                                value={typeof window !== 'undefined' ? window.location.href : ''}
+                                className="pr-16 border-2 border-foreground font-pixel text-xs bg-yeezy-light h-14"
+                              />
+                              <Button
+                                  size="sm"
+                                  className="absolute right-1 top-1 bottom-1 h-auto w-12 bg-foreground text-background hover:bg-foreground/90 rounded-none border-2 border-transparent"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(window.location.href)
+                                  }}
+                              >
+                                  <Copy className="w-4 h-4" />
+                              </Button>
+                          </div>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-8 text-center">
+                      <div className="space-y-4">
+                          <div className="w-24 h-24 bg-foreground text-background flex items-center justify-center mx-auto border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(17,17,17,1)]">
+                              <Swords className="w-12 h-12" />
+                          </div>
+                          <h3 className="text-4xl font-black text-foreground uppercase tracking-tighter">¡Has sido retado!</h3>
+                          <p className="text-foreground/80 text-xl max-w-md mx-auto font-bold uppercase mt-4">
+                              El creador ha puesto <span className="font-pixel text-foreground">${challenge.betAmount}</span> en juego.
+                              <br /><br />
+                              ¿Aceptas el desafío?
+                          </p>
+                      </div>
+
+                      <Button
+                        onClick={handleAcceptChallenge}
+                        disabled={accepting}
+                        className="yeezy-button h-16 px-10 text-xl w-full max-w-sm"
+                      >
+                        {accepting ? (
+                          <>
+                            <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-6 h-6 mr-3 fill-current" />
+                            ACEPTAR Y APOSTAR ${challenge.betAmount}
+                          </>
+                        )}
+                      </Button>
+                  </div>
+              )
+          ) : challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
               <div className="space-y-6 animate-in zoom-in-95 duration-500">
                   <div className="flex justify-center mb-6">
                       <a
