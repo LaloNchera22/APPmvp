@@ -82,7 +82,6 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
           filter: `id=eq.${challengeId}`,
         },
         (payload) => {
-          console.log("Match update:", payload)
           setChallenge(payload.new as unknown as Challenge)
         }
       )
