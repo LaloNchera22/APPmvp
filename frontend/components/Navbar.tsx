@@ -28,19 +28,21 @@ export default function Navbar() {
   useEffect(() => {
     const fetchUserData = async (currentUser: User | null) => {
       if (currentUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", currentUser.id)
-          .single()
-        if (profile) setUsername(profile.username)
+        const [profileRes, walletRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", currentUser.id)
+            .single(),
+          supabase
+            .from("wallets")
+            .select("balance")
+            .eq("userId", currentUser.id)
+            .single()
+        ])
 
-        const { data: wallet } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("userId", currentUser.id)
-          .single()
-        if (wallet) setBalance(Number(wallet.balance).toFixed(2))
+        if (profileRes.data) setUsername(profileRes.data.username)
+        if (walletRes.data) setBalance(Number(walletRes.data.balance).toFixed(2))
       } else {
         setBalance("0.00")
         setUsername(null)
