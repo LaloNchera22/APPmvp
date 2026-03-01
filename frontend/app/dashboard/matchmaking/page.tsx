@@ -44,6 +44,7 @@ export default function MatchmakingPage() {
       if (type === 'public') {
         router.push(`/dashboard/retos-publicos`)
       } else {
+        if (!data || !data.id) { setError("No se recibió el ID del reto."); return; }
         router.push(`/dashboard/play/${data.id}`)
       }
 
