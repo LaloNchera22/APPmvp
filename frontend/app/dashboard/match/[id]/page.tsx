@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Swords, CheckCircle, ExternalLink, AlertCircle, Copy, Play } from "lucide-react"
+import { Loader2, Swords, CheckCircle, ExternalLink, Copy, Play, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { motion, AnimatePresence } from "framer-motion"
 
 interface Challenge {
   id: string
@@ -30,11 +29,6 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
 
   // Accept Challenge State
   const [accepting, setAccepting] = useState(false)
-
-  // Verification State
-  const [verifying, setVerifying] = useState(false)
-  const [verifyMessage, setVerifyMessage] = useState("")
-  const [verifyStatus, setVerifyStatus] = useState<'IDLE' | 'COMPLETED' | 'PENDING' | 'ERROR'>('IDLE')
 
   const supabase = createClient()
   const router = useRouter()
@@ -98,6 +92,13 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
     }
   }, [challengeId, supabase])
 
+  // Redirect automatically when match goes into progress
+  useEffect(() => {
+    if (challenge && challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id) {
+        router.push(`/dashboard/play/${challenge.id}`)
+    }
+  }, [challenge, router])
+
   const handleAcceptChallenge = async () => {
     setAccepting(true)
     try {
@@ -119,48 +120,6 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
       alert(e instanceof Error ? e.message : "Error al aceptar el reto")
     } finally {
       setAccepting(false)
-    }
-  }
-
-  const handleVerify = async () => {
-    if (!challenge?.lichess_game_id) return
-
-    setVerifying(true)
-    setVerifyMessage('')
-    setVerifyStatus('IDLE')
-
-    try {
-      const res = await fetch('/api/verify-chess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengeId,
-          gameId: challenge.lichess_game_id
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al verificar la partida')
-      }
-
-      if (data.status === 'COMPLETED') {
-        setVerifyStatus('COMPLETED')
-        // Dispatch event to update Navbar balance if we had one
-        window.dispatchEvent(new Event('balanceUpdated'))
-      } else {
-        setVerifyStatus('PENDING')
-        setVerifyMessage(data.message || 'La partida no ha terminado o no se encontró.')
-      }
-
-    } catch (error: unknown) {
-      console.error(error)
-      setVerifyStatus('ERROR')
-      const err = error as Error
-      setVerifyMessage(err.message || 'Ocurrió un error inesperado.')
-    } finally {
-      setVerifying(false)
     }
   }
 
@@ -278,83 +237,9 @@ export default function MatchRoom({ params }: { params: { id: string } }) {
                           </div>
                       )
                   ) : challenge.status === 'IN_PROGRESS' && challenge.lichess_game_id ? (
-                      <div className="space-y-6 animate-in zoom-in-95 duration-500">
-                          <div className="flex justify-center mb-6">
-                              <a
-                                href={challenge.gameLink || `https://lichess.org/${challenge.lichess_game_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="yeezy-button w-full max-w-sm flex items-center justify-center gap-3 py-4 text-lg font-bold uppercase"
-                              >
-                                <Play className="w-5 h-5 fill-current" />
-                                Ir a Lichess
-                                <ExternalLink className="w-5 h-5" />
-                              </a>
-                          </div>
-
-                          <div className="aspect-[4/3] w-full bg-foreground border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(17,17,17,1)] overflow-hidden">
-                            <iframe
-                              src={`https://lichess.org/${challenge.lichess_game_id}`}
-                              className="w-full h-full"
-                              frameBorder="0"
-                              allowTransparency={true}
-                            />
-                          </div>
-
-                          <div className="space-y-4 pt-8">
-                               <Button
-                                  onClick={handleVerify}
-                                  disabled={verifying}
-                                  className={`w-full font-bold h-16 text-xl transition-all duration-300 ${
-                                      verifying
-                                      ? 'bg-foreground/20 text-foreground/50 border-4 border-foreground/20 cursor-not-allowed rounded-none'
-                                      : 'yeezy-button'
-                                  }`}
-                                  >
-                                  {verifying ? (
-                                      <>
-                                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                                      Verificando...
-                                      </>
-                                  ) : (
-                                      "VERIFICAR RESULTADO"
-                                  )}
-                                </Button>
-
-                                <AnimatePresence mode="wait">
-                                  {verifyStatus === 'COMPLETED' ? (
-                                      <motion.div
-                                          initial={{ opacity: 0, scale: 0.9 }}
-                                          animate={{ opacity: 1, scale: 1 }}
-                                          className="bg-green-100 border-4 border-green-600 p-6 text-center space-y-4"
-                                      >
-                                          <div className="flex flex-col items-center justify-center gap-2 text-green-700">
-                                            <CheckCircle className="w-12 h-12" />
-                                            <h3 className="text-2xl font-black uppercase">¡Partida Verificada!</h3>
-                                          </div>
-                                          <p className="text-green-800 font-bold uppercase">Los fondos han sido transferidos al ganador.</p>
-                                          <Button
-                                            onClick={() => router.push('/dashboard')}
-                                            className="mt-4 border-4 border-green-700 bg-green-200 text-green-900 hover:bg-green-300 w-full rounded-none font-bold uppercase"
-                                          >
-                                            Volver al Inicio
-                                          </Button>
-                                      </motion.div>
-                                  ) : verifyStatus !== 'IDLE' && (
-                                      <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className={`p-4 border-4 text-sm font-bold uppercase flex items-start gap-3 ${
-                                          verifyStatus === 'ERROR'
-                                          ? 'bg-red-100 border-red-600 text-red-700'
-                                          : 'bg-yellow-100 border-yellow-500 text-yellow-800'
-                                      }`}>
-                                          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                                          <span className="text-base">{verifyMessage}</span>
-                                      </motion.div>
-                                  )}
-                                </AnimatePresence>
-                          </div>
+                      <div className="text-center py-12 space-y-8 animate-in zoom-in-95 duration-500">
+                           <Loader2 className="w-20 h-20 text-foreground animate-spin mx-auto" />
+                           <p className="text-xl font-bold uppercase text-foreground animate-pulse">Redirigiendo a la sala de juego...</p>
                       </div>
                   ) : challenge.status === 'COMPLETED' ? (
                       <div className="text-center py-12 space-y-8">

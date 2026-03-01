@@ -11,7 +11,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { betAmount } = await request.json()
+    const { betAmount, type } = await request.json()
+    const challengeType = type === 'public' ? 'public' : 'private'
 
     // Validate input
     if (typeof betAmount !== 'number' || betAmount <= 0) {
@@ -65,7 +66,8 @@ export async function POST(request: Request) {
         metric: 'MATCH_WINNER',
         betAmount: betAmount,
         status: 'OPEN',
-        creatorId: user.id
+        creatorId: user.id,
+        type: challengeType
       })
       .select()
       .single()

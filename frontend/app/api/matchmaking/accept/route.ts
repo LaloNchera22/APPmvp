@@ -111,20 +111,22 @@ export async function POST(request: Request) {
     // 3. Create Lichess Game
     let lichessData
     try {
+        const params = new URLSearchParams()
+        params.append('clock.limit', '600')
+        params.append('clock.increment', '0')
+        params.append('name', `Reto ${betAmount} USD`)
+
         const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
             method: 'POST',
             headers: {
-                // If we want the bot to be the creator? No, open challenges are anonymous usually unless authenticated.
-                // If we use a token, the account owning the token creates it.
-                'Authorization': `Bearer ${process.env.LICHESS_API_TOKEN}`
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify({
-                clock: { limit: 600, increment: 0 }, // Example: 10 mins
-                name: `Reto ${betAmount} USD`
-            })
+            body: params.toString()
         })
 
         if (!lichessResponse.ok) {
+            const errText = await lichessResponse.text()
+            console.error('Lichess API error text:', errText)
             throw new Error(`Lichess API error: ${lichessResponse.statusText}`)
         }
 
@@ -136,18 +138,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
     }
 
-    // Extract ID and URL
-    // Lichess response format for /api/challenge/open: { challenge: { id: "...", url: "..." } } OR { id: "...", url: "..." } depending on endpoint version/docs.
-    // Usually /api/challenge/open returns { challenge: { id, url, ... }, urlWhite: "...", urlBlack: "..." } if strictly open?
-    // Let's assume standard response based on previous code or docs. Previous code handled both.
+    // Extract ID and URLs
     const lichessGameId = lichessData.challenge?.id || lichessData.id
-    const lichessGameUrl = lichessData.challenge?.url || lichessData.url || `https://lichess.org/${lichessGameId}`
+    const urlWhite = lichessData.urlWhite
+    const urlBlack = lichessData.urlBlack
 
-    if (!lichessGameId) {
+    if (!lichessGameId || !urlWhite || !urlBlack) {
         console.error("Invalid Lichess response:", lichessData)
         await refundUser(user.id, betAmount)
         return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
     }
+
+    const gameLinkJson = JSON.stringify({ white: urlWhite, black: urlBlack })
 
     // 4. Update Challenge (IN_PROGRESS)
     // Critical: Check status is STILL 'OPEN' to prevent race conditions
@@ -157,7 +159,7 @@ export async function POST(request: Request) {
         status: 'IN_PROGRESS',
         challengerId: user.id,
         lichess_game_id: lichessGameId,
-        gameLink: lichessGameUrl
+        gameLink: gameLinkJson
       })
       .eq('id', challengeId)
       .eq('status', 'OPEN')
