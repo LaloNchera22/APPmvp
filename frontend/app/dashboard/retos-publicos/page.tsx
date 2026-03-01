@@ -59,7 +59,7 @@ export default async function PublicChallengesPage() {
                   <div>
                     <h3 className="font-pixel text-lg text-foreground uppercase">Ajedrez</h3>
                     <p className="text-sm font-bold text-foreground/60 uppercase">
-                      1v1 Lichess
+                      1v1 Nativo
                     </p>
                   </div>
               </div>
