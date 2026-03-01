@@ -6,19 +6,18 @@ import { Swords, Loader2, DollarSign } from "lucide-react"
 
 export default function MatchmakingPage() {
   const [betAmount, setBetAmount] = useState<string>("")
-  const [loading, setLoading] = useState(false)
+  const [loadingType, setLoadingType] = useState<"private" | "public" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleCreateChallenge = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleCreateChallenge = async (type: "private" | "public") => {
+    setLoadingType(type)
     setError(null)
 
     const amount = parseFloat(betAmount)
     if (isNaN(amount) || amount <= 0) {
       setError("Por favor ingresa un monto válido.")
-      setLoading(false)
+      setLoadingType(null)
       return
     }
 
@@ -26,7 +25,7 @@ export default function MatchmakingPage() {
       const response = await fetch('/api/matchmaking/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ betAmount: amount })
+        body: JSON.stringify({ betAmount: amount, type })
       })
 
       const data = await response.json()
@@ -37,17 +36,21 @@ export default function MatchmakingPage() {
         } else {
              setError(data.error || "Error al crear el reto.")
         }
-        setLoading(false)
+        setLoadingType(null)
         return
       }
 
-      // Redirect to match room
-      router.push(`/dashboard/match/${data.id}`)
+      // Redirect based on type
+      if (type === 'public') {
+        router.push(`/dashboard/retos-publicos`)
+      } else {
+        router.push(`/dashboard/match/${data.id}`)
+      }
 
     } catch (err) {
       console.error(err)
       setError("Error de conexión.")
-      setLoading(false)
+      setLoadingType(null)
     }
   }
 
@@ -59,9 +62,9 @@ export default function MatchmakingPage() {
         </div>
 
         <h1 className="text-2xl font-pixel uppercase mb-2 text-foreground">Crear Reto de Ajedrez</h1>
-        <p className="text-foreground/80 mb-8 font-bold">DEFINE EL VALOR DE LA APUESTA PARA GENERAR TU ENLACE.</p>
+        <p className="text-foreground/80 mb-8 font-bold">DEFINE EL VALOR DE LA APUESTA.</p>
 
-        <form onSubmit={handleCreateChallenge} className="w-full space-y-6">
+        <div className="w-full space-y-6">
           <div className="space-y-2 text-left">
             <label className="text-sm font-pixel uppercase text-foreground block">Monto a Apostar (USD)</label>
             <div className="relative">
@@ -85,25 +88,42 @@ export default function MatchmakingPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="yeezy-button w-full h-14 flex items-center justify-center text-lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                CREANDO...
-              </>
-            ) : (
-              "GENERAR LINK DE RETO"
-            )}
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={() => handleCreateChallenge('private')}
+              disabled={loadingType !== null}
+              className="yeezy-button w-full h-14 flex items-center justify-center text-lg"
+            >
+              {loadingType === 'private' ? (
+                <>
+                  <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                  CREANDO...
+                </>
+              ) : (
+                "GENERAR LINK DE RETO"
+              )}
+            </button>
+
+            <button
+              onClick={() => handleCreateChallenge('public')}
+              disabled={loadingType !== null}
+              className="yeezy-button bg-background text-foreground hover:bg-foreground hover:text-background w-full h-14 flex items-center justify-center text-lg"
+            >
+              {loadingType === 'public' ? (
+                <>
+                  <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                  CREANDO...
+                </>
+              ) : (
+                "GENERAR RETO PÚBLICO"
+              )}
+            </button>
+          </div>
 
           <p className="text-xs text-foreground/70 text-center font-bold px-4 uppercase mt-4">
             Al crear el reto, el monto se descontará de tu billetera temporalmente hasta que finalice la partida.
           </p>
-        </form>
+        </div>
       </div>
     </div>
   )

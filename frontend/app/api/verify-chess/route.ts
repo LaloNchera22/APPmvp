@@ -189,9 +189,9 @@ export async function POST(req: NextRequest) {
         await updateWalletSafe(challengerId, bet)
     } else if (winnerId) {
         // Payout Winner
-        const totalPot = Number(betAmount) * 2
-        const commission = totalPot * 0.10 // 10% commission
-        const payout = totalPot - commission
+        // Total pool is 2X. The winner receives 190% of their bet. The remaining 10% stays in platform.
+        const baseBet = Number(betAmount)
+        const payout = baseBet * 1.90 // Original 100% + 90% of opponent's bet
 
         await updateWalletSafe(winnerId, payout)
     }
