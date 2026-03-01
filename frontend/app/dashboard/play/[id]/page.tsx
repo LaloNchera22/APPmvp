@@ -23,7 +23,7 @@ export default function PlayMatchRoom() {
   const params = useParams()
   const router = useRouter()
   const challengeId = params.id as string
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
 
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -85,15 +85,21 @@ export default function PlayMatchRoom() {
           const updatedChallenge = payload.new as unknown as Challenge
           setChallenge(updatedChallenge)
 
-          if (updatedChallenge.fen && updatedChallenge.fen !== fen) {
-            try {
-                const newGame = new Chess()
-                newGame.load(updatedChallenge.fen)
-                setGame(newGame)
-                setFen(updatedChallenge.fen)
-            } catch (err) {
-                console.error("Error updating fen from realtime:", err)
-            }
+          if (updatedChallenge.fen) {
+              setFen((currentFen) => {
+                  if (updatedChallenge.fen !== currentFen) {
+                      try {
+                          const newGame = new Chess()
+                          newGame.load(updatedChallenge.fen)
+                          setGame(newGame)
+                          return updatedChallenge.fen
+                      } catch (e) {
+                          console.error("Error updating fen from realtime:", e)
+                          return currentFen
+                      }
+                  }
+                  return currentFen
+              })
           }
         }
       )
@@ -103,7 +109,7 @@ export default function PlayMatchRoom() {
       supabase.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId, fen])
+  }, [challengeId])
 
   const handleAcceptChallenge = async () => {
     setAccepting(true)
@@ -202,9 +208,8 @@ export default function PlayMatchRoom() {
               .then(({ error }) => {
                   if (error) { setFen(game.fen()); setGame(game); alert('Error al registrar movimiento'); setIsUpdatingFen(false); return; }
                   setIsUpdatingFen(false)
+                  checkGameOver(gameCopy)
               })
-
-          checkGameOver(gameCopy)
 
           return true
       } catch (err) {
