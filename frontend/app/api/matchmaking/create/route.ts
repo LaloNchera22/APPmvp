@@ -59,21 +59,34 @@ export async function POST(request: Request) {
     }
 
     // 3. Create Challenge
-    const { data: newChallenge, error: insertError } = await supabaseAdmin
-      .from('challenges')
-      .insert({
-        game: 'CHESS_COM',
-        metric: 'MATCH_WINNER',
-        betAmount: betAmount,
-        status: 'OPEN',
-        creatorId: user.id,
-        match_type: challengeType
-      })
-      .select()
-      .single()
+    let newChallenge;
+    let insertError;
+
+    try {
+      const result = await supabaseAdmin
+        .from('challenges')
+        .insert({
+          game: 'CHESS_COM',
+          metric: 'MATCH_WINNER',
+          betAmount: betAmount,
+          status: 'OPEN',
+          creatorId: user.id,
+          match_type: challengeType,
+          url_white: null,
+          url_black: null
+        })
+        .select()
+        .single();
+
+      newChallenge = result.data;
+      insertError = result.error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      insertError = error;
+    }
 
     if (insertError) {
-      console.error('Challenge creation failed:', insertError)
+      console.error('Challenge creation failed:', JSON.stringify(insertError, null, 2));
 
       // Rollback: Refund safely with retry loop for optimistic locking
       let refundSuccess = false
@@ -105,8 +118,8 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({
-        error: 'Error al crear el reto.',
-        details: insertError.message
+        error: insertError.message || 'Error al crear el reto.',
+        details: insertError
       }, { status: 500 })
     }
 

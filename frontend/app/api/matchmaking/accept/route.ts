@@ -111,31 +111,33 @@ export async function POST(request: Request) {
     // 3. Create Lichess Game
     let lichessData
     try {
-        const params = new URLSearchParams()
-        params.append('clock.limit', '600')
-        params.append('clock.increment', '0')
-        params.append('name', `Reto ${betAmount} USD`)
+        const bodyStr = new URLSearchParams({
+            'clock.limit': '600',
+            'clock.increment': '0',
+            'name': `Reto ${betAmount} USD`
+        }).toString()
 
         const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: params.toString()
+            body: bodyStr
         })
 
         if (!lichessResponse.ok) {
             const errText = await lichessResponse.text()
             console.error('Lichess API error text:', errText)
-            throw new Error(`Lichess API error: ${lichessResponse.statusText}`)
+            throw new Error(`Lichess API error: ${lichessResponse.statusText} - ${errText}`)
         }
 
         lichessData = await lichessResponse.json()
-    } catch (e) {
-        console.error("Error creating Lichess game:", e)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+        console.error("Error creating Lichess game:", JSON.stringify(e, null, 2))
         // Refund challenger
         await refundUser(user.id, betAmount)
-        return NextResponse.json({ error: 'Error al crear la partida en Lichess.' }, { status: 502 })
+        return NextResponse.json({ error: e.message || 'Error al crear la partida en Lichess.', details: e }, { status: 502 })
     }
 
     // Extract ID and URLs
