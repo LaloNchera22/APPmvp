@@ -200,7 +200,7 @@ export default function PlayMatchRoom() {
               .update({ fen: newFen })
               .eq('id', challengeId)
               .then(({ error }) => {
-                  if (error) console.error("Error updating fen:", error)
+                  if (error) { setFen(game.fen()); setGame(game); alert('Error al registrar movimiento'); setIsUpdatingFen(false); return; }
                   setIsUpdatingFen(false)
               })
 
