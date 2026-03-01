@@ -15,7 +15,8 @@ interface Challenge {
   betAmount?: number | null
   creatorId: string
   challengerId: string
-  gameLink?: string | null
+  url_white?: string | null
+  url_black?: string | null
   lichess_game_id?: string | null
   winnerId?: string | null
 }

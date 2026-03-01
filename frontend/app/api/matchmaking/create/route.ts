@@ -67,7 +67,7 @@ export async function POST(request: Request) {
         betAmount: betAmount,
         status: 'OPEN',
         creatorId: user.id,
-        type: challengeType
+        match_type: challengeType
       })
       .select()
       .single()

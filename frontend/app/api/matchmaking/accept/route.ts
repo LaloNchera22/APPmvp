@@ -140,16 +140,14 @@ export async function POST(request: Request) {
 
     // Extract ID and URLs
     const lichessGameId = lichessData.challenge?.id || lichessData.id
-    const urlWhite = lichessData.urlWhite
-    const urlBlack = lichessData.urlBlack
+    const urlWhite = lichessData.urlWhite || lichessData.challenge?.url || lichessData.url
+    const urlBlack = lichessData.urlBlack || lichessData.challenge?.url || lichessData.url
 
     if (!lichessGameId || !urlWhite || !urlBlack) {
         console.error("Invalid Lichess response:", lichessData)
         await refundUser(user.id, betAmount)
         return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
     }
-
-    const gameLinkJson = JSON.stringify({ white: urlWhite, black: urlBlack })
 
     // 4. Update Challenge (IN_PROGRESS)
     // Critical: Check status is STILL 'OPEN' to prevent race conditions
@@ -159,7 +157,8 @@ export async function POST(request: Request) {
         status: 'IN_PROGRESS',
         challengerId: user.id,
         lichess_game_id: lichessGameId,
-        gameLink: gameLinkJson
+        url_white: urlWhite,
+        url_black: urlBlack
       })
       .eq('id', challengeId)
       .eq('status', 'OPEN')
@@ -180,7 +179,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       challengeId: updatedChallenge.id,
-      gameLink: updatedChallenge.gameLink
+      url_black: updatedChallenge.url_black
     })
 
   } catch (err: unknown) {
