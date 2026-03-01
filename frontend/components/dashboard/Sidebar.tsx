@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Wallet, Swords, LogOut, Globe } from "lucide-react"
+import { Home, Wallet, Swords, LogOut, User, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/utils/supabase/client"
@@ -15,19 +15,24 @@ const sidebarItems = [
     icon: Home,
   },
   {
-    title: "Jugar Ajedrez",
-    href: "/dashboard/matchmaking",
-    icon: Swords,
+    title: "Perfil",
+    href: "/dashboard/perfil",
+    icon: User,
   },
   {
-    title: "Retos Públicos",
-    href: "/dashboard/retos-publicos",
-    icon: Globe,
+    title: "Juegos",
+    href: "/dashboard/games",
+    icon: Gamepad2,
   },
   {
-    title: "Mi Billetera",
+    title: "Cartera",
     href: "/dashboard/wallet",
     icon: Wallet,
+  },
+  {
+    title: "Emparejamientos",
+    href: "/dashboard/retos-publicos",
+    icon: Swords,
   },
 ]
 
@@ -43,29 +48,28 @@ export function Sidebar() {
   }
 
   return (
-    <div className="hidden md:flex flex-col w-64 border-r-4 border-foreground bg-background h-[calc(100vh-64px)] fixed top-16 left-0 overflow-y-auto z-40">
+    <div className="hidden md:flex flex-col w-64 border-r border-[#222222] bg-[#000000] h-[calc(100vh-64px)] fixed top-16 left-0 overflow-y-auto z-40">
       <div className="flex-1 py-6 px-4 space-y-4">
-        <div className="px-2 mb-6 border-b-4 border-foreground pb-4">
-           <h2 className="text-xl font-bold text-foreground uppercase tracking-tighter">Panel de Control</h2>
+        <div className="px-2 mb-6">
+           <h2 className="text-lg font-bold text-white font-sans tracking-normal capitalize">Panel de Control</h2>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           {sidebarItems.map((item) => {
-            const isMatchmaking = item.href === "/dashboard/matchmaking"
-            const isActive = pathname === item.href || pathname?.startsWith(item.href)
+            const isActive = pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/dashboard")
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-3 font-bold uppercase transition-all border-2",
+                  "flex items-center gap-3 px-3 py-2.5 text-sm font-sans font-medium transition-all rounded-md normal-case tracking-normal",
                   isActive
-                    ? "bg-foreground text-background border-foreground shadow-[4px_4px_0px_0px_rgba(17,17,17,1)] translate-x-[-2px] translate-y-[-2px]"
-                    : "bg-background text-foreground border-transparent hover:border-foreground hover:bg-yeezy-light"
+                    ? "bg-[#222222] text-[#00a8ff]"
+                    : "text-gray-400 hover:text-white hover:bg-[#111111]"
                 )}
               >
-                <item.icon className={cn("w-5 h-5", isMatchmaking && !isActive && "animate-pulse")} />
+                <item.icon className={cn("w-5 h-5", isActive ? "text-[#00a8ff]" : "text-gray-400")} />
                 {item.title}
               </Link>
             )
@@ -73,10 +77,10 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="p-4 border-t-4 border-foreground bg-yeezy-light">
+      <div className="p-4 border-t border-[#222222] bg-[#000000]">
         <Button
           variant="ghost"
-          className="w-full justify-start text-red-600 hover:bg-red-600 hover:text-background rounded-none font-bold uppercase gap-3 transition-colors border-2 border-transparent hover:border-red-600"
+          className="w-full justify-start text-red-500 hover:bg-transparent hover:text-red-400 rounded-md font-sans font-medium gap-3 transition-colors px-3 py-2 h-auto normal-case tracking-normal"
           onClick={handleSignOut}
         >
           <LogOut className="w-5 h-5" />
