@@ -6,18 +6,24 @@
   - Local:        http://localhost:3000
 
  ✓ Starting...
- ✓ Ready in 1784ms
+ ✓ Ready in 2.3s
  ○ Compiling /middleware ...
- ✓ Compiled /middleware in 1084ms (123 modules)
+ ✓ Compiled /middleware in 1649ms (123 modules)
 Supabase URL or Key is missing in middleware. Using placeholders.
- ○ Compiling /test-play ...
- ✓ Compiled /test-play in 12.9s (1700 modules)
+ ○ Compiling /test-play-room ...
+ ✓ Compiled /test-play-room in 12.6s (1700 modules)
 Supabase URL or Key is missing. Using placeholders for build.
 Supabase URL or Key is missing. Using placeholders for build.
- GET /test-play 200 in 13603ms
- ✓ Compiled in 965ms (849 modules)
+ GET /test-play-room 200 in 13413ms
+ ✓ Compiled in 1036ms (849 modules)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled in 870ms (1673 modules)
+ ✓ Compiled in 761ms (1661 modules)
 Supabase URL or Key is missing in middleware. Using placeholders.
 Supabase URL or Key is missing. Using placeholders for build.
-Supabase URL or Key is missing. Using placeholders for build.
- GET /test-play 200 in 43ms
+ GET /test-play-room 200 in 485ms
+ ✓ Compiled in 777ms (946 modules)
+ ✓ Compiled in 1986ms (837 modules)
+ ✓ Compiled in 427ms (837 modules)
+ ✓ Compiled in 671ms (837 modules)
+ ✓ Compiled in 351ms (837 modules)

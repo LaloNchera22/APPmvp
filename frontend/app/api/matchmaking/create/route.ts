@@ -92,50 +92,7 @@ export async function POST(request: Request) {
         }
     }
 
-    // 3. Create Lichess Game
-    let lichessData
-    try {
-        const bodyStr = new URLSearchParams({
-            'clock.limit': '600',
-            'clock.increment': '0',
-            'name': `Reto ${betAmount} USD`
-        }).toString()
-
-        const lichessResponse = await fetch('https://lichess.org/api/challenge/open', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: bodyStr
-        })
-
-        if (!lichessResponse.ok) {
-            const errText = await lichessResponse.text()
-            console.error('Lichess API error text:', errText)
-            throw new Error(`Lichess API error: ${lichessResponse.statusText} - ${errText}`)
-        }
-
-        lichessData = await lichessResponse.json()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-        console.error("Error creating Lichess game:", JSON.stringify(e, null, 2))
-        // Refund creator
-        await refundUser(user.id, betAmount)
-        return NextResponse.json({ error: e.message || 'Error al crear la partida en Lichess.', details: e }, { status: 502 })
-    }
-
-    // Extract ID and URLs
-    const lichessGameId = lichessData.challenge?.id || lichessData.id
-    const urlWhite = lichessData.urlWhite || lichessData.challenge?.url || lichessData.url
-    const urlBlack = lichessData.urlBlack || lichessData.challenge?.url || lichessData.url
-
-    if (!lichessGameId || !urlWhite || !urlBlack) {
-        console.error("Invalid Lichess response:", lichessData)
-        await refundUser(user.id, betAmount)
-        return NextResponse.json({ error: 'Respuesta inválida de Lichess.' }, { status: 502 })
-    }
-
-    // 4. Create Challenge
+    // 3. Create Challenge (Native Multi-player)
     let newChallenge;
     let insertError;
 
@@ -143,15 +100,13 @@ export async function POST(request: Request) {
       const result = await supabaseAdmin
         .from('challenges')
         .insert({
-          game: 'LICHESS',
+          game: 'CHESS', // Changed from LICHESS to generic CHESS
           metric: 'MATCH_WINNER',
           betAmount: betAmount,
           status: 'OPEN',
           creatorId: user.id,
           match_type: challengeType,
-          lichess_game_id: lichessGameId,
-          url_white: urlWhite,
-          url_black: urlBlack
+          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
         })
         .select()
         .single();
