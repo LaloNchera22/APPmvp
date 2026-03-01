@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy, LayoutDashboard } from "lucide-react"
+import { Menu, X, Wallet, LogOut, User as UserIcon, Trophy, LayoutDashboard, Home } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { User } from "@supabase/supabase-js"
 
@@ -89,15 +89,15 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b-4 border-foreground bg-background">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#222222] bg-[#000000]">
+      <div className="px-4 sm:px-6 lg:px-8 w-full">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="font-pixel font-bold text-xl tracking-tighter text-foreground uppercase">
-             P2P PLATFORM
+          <Link href="/" className="text-white flex items-center justify-center p-2 rounded-md hover:bg-[#1a1a1a]">
+             <Home className="w-6 h-6" />
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:gap-6">
+          <div className="hidden md:flex md:items-center md:gap-4">
             {user ? (
               <>
                 <Link href="/dashboard">
@@ -151,12 +151,12 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-4">
                 <Link href="/login">
-                  <Button variant="ghost" className="text-foreground hover:bg-foreground hover:text-background rounded-none font-bold uppercase transition-colors">
+                  <Button variant="ghost" className="text-gray-300 hover:text-white hover:bg-transparent rounded-md text-sm font-sans font-medium transition-colors normal-case tracking-normal">
                     Ingresar
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="yeezy-button">
+                  <Button className="bg-[#000000] border border-[#00a8ff] text-[#00a8ff] hover:bg-[#00a8ff]/10 rounded-md text-sm font-sans font-medium px-4 h-9 normal-case tracking-normal shadow-none">
                     Registrarse
                   </Button>
                 </Link>
