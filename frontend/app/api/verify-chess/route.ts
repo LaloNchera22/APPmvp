@@ -157,6 +157,8 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', challengeId)
         .neq('status', 'COMPLETED') // Ensure we only complete once
+        .select()
+        .single() // Forces an error if no rows are updated
 
     if (updateChallengeError) {
         // If error or no rows updated, likely already completed
