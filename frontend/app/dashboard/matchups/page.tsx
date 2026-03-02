@@ -23,19 +23,20 @@ export default async function MatchupsPage() {
     redirect("/login")
   }
 
-  // Fetch Open Challenges
+  // Fetch Open Challenges with explicit typing
   const { data: challengesData, error: challengesError } = await supabase
     .from("challenges")
     .select("*")
     .eq("status", "OPEN")
     .order("createdAt", { ascending: false })
+    .returns<Challenge[]>()
 
   if (challengesError) {
     console.error("Error fetching challenges:", challengesError)
   }
 
-  // Cast to Challenge[] to fix 'any' type error
-  const challenges = (challengesData as unknown as Challenge[]) || []
+  // Use the typed data from Supabase
+  const challenges = challengesData || []
 
   return (
     <div className="space-y-6">

@@ -24,19 +24,20 @@ export default async function PublicChallengesPage() {
     redirect("/login")
   }
 
-  // Fetch Open Public Challenges
+  // Fetch Open Public Challenges with explicit typing
   const { data: challengesData, error: challengesError } = await supabase
     .from("challenges")
     .select("*")
     .eq("status", "OPEN")
     .eq("match_type", "public")
     .order("createdAt", { ascending: false })
+    .returns<Challenge[]>()
 
   if (challengesError) {
     console.error("Error fetching challenges:", challengesError)
   }
 
-  const challenges = (challengesData as unknown as Challenge[]) || []
+  const challenges = challengesData || []
 
   return (
     <div className="space-y-6">
