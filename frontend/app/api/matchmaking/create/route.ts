@@ -3,13 +3,6 @@ import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
     const { betAmount, type } = await request.json()
     const challengeType = type === 'public' ? 'public' : 'private'
@@ -17,6 +10,13 @@ export async function POST(request: Request) {
     // Validate input
     if (typeof betAmount !== 'number' || betAmount <= 0) {
       return NextResponse.json({ error: 'Monto inválido.' }, { status: 400 })
+    }
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     let supabaseAdmin
